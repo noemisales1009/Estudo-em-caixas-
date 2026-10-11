@@ -22,7 +22,7 @@ const ok = (nome, cond, extra = "") => {
 const pausa = (ms) => new Promise((f) => setTimeout(f, ms));
 
 // ---------- Supabase de mentira ----------
-const fake = { users: new Map(), rows: new Map(), down: false, autoconfirm: true, cap: 1000, n: 0, writes: 0, reads: 0, real: 0 };
+const fake = { users: new Map(), rows: new Map(), down: false, fora: false, marca: "", autoconfirm: true, cap: 1000, n: 0, writes: 0, reads: 0, real: 0 };
 const iso = new Date().toISOString();
 const b64u = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const json = (status, body, headers = {}) => ({ status, headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
@@ -108,11 +108,22 @@ const linhas = (email) => [...fake.rows.values()].filter((r) => r.user_id === fa
 const nomes = (email, tipo) => linhas(email).filter((r) => r.tipo === tipo).map((r) => r.dados.title).sort();
 
 // ---------- Servidor do app ----------
+const RAIZ = path.dirname(path.resolve(APP));
+const TIPOS = { ".js": "text/javascript", ".webmanifest": "application/manifest+json", ".png": "image/png" };
 const server = http.createServer((req, res) => {
+  if (fake.fora) return req.socket.destroy(); // site fora do ar
+  const caminho = decodeURIComponent(new URL(req.url, "http://x").pathname);
+  if (caminho !== "/" && caminho !== "/index.html") {
+    const arq = path.join(RAIZ, caminho);
+    if (!TIPOS[path.extname(arq)] || !arq.startsWith(RAIZ + path.sep) || !fs.existsSync(arq)) { res.writeHead(404); return res.end(); }
+    res.writeHead(200, { "Content-Type": TIPOS[path.extname(arq)], "Cache-Control": "no-store" });
+    return res.end(fs.readFileSync(arq));
+  }
   let html = fs.readFileSync(APP, "utf8");
   if (req.url.includes("modo=local"))
     html = html.replace(/const SUPABASE_URL = "[^"]*"/, 'const SUPABASE_URL = ""').replace(/const SUPABASE_KEY =\s*"[^"]*"/, 'const SUPABASE_KEY = ""');
-  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  if (fake.marca) html = html.replace("</head>", `<meta name="teste-versao" content="${fake.marca}" /></head>`);
+  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
   res.end(html.replaceAll(REAL, FAKE));
 });
 await new Promise((f) => server.listen(0, "127.0.0.1", f));
@@ -121,8 +132,9 @@ const BASE = `http://127.0.0.1:${server.address().port}/`;
 // ---------- Chrome ----------
 const porta = 9300 + Math.floor(Math.random() * 500);
 const chrome = spawn(CHROME, ["--headless=new", `--remote-debugging-port=${porta}`, `--user-data-dir=${path.join(OUT, "perfil")}`, "--disable-web-security", "--no-first-run", "--disable-gpu", "--hide-scrollbars", "about:blank"], { stdio: "ignore" });
+process.on("exit", () => chrome.kill());
 let wsUrl;
-for (let i = 0; i < 60 && !wsUrl; i++) {
+for (let i = 0; i < 120 && !wsUrl; i++) {
   try { wsUrl = (await (await fetch(`http://127.0.0.1:${porta}/json/version`)).json()).webSocketDebuggerUrl; } catch { await pausa(250); }
 }
 const ws = new WebSocket(wsUrl);
@@ -132,7 +144,8 @@ const espera = new Map(), ouvintes = new Map();
 ws.onmessage = (m) => {
   const d = JSON.parse(m.data);
   if (d.id) { const p = espera.get(d.id); espera.delete(d.id); d.error ? p.reject(Error(d.error.message)) : p.resolve(d.result); }
-  else ouvintes.get(d.sessionId || "")?.(d.method, d.params);
+  // Um pedido interrompido no meio (página recarregada, internet cortada) já não aceita resposta.
+  else Promise.resolve(ouvintes.get(d.sessionId || "")?.(d.method, d.params)).catch((e) => { if (!/Invalid InterceptionId/.test(e.message)) throw e; });
 };
 const cdp = (method, params = {}, sessionId) => new Promise((resolve, reject) => { const id = ++seq; espera.set(id, { resolve, reject }); ws.send(JSON.stringify({ id, method, params, sessionId })); });
 
@@ -180,8 +193,21 @@ async function ev(d, expr) {
 }
 async function ate(d, expr, ms = 8000) {
   const fim = Date.now() + ms;
-  while (Date.now() < fim) { if (await ev(d, `!!(${expr})`).catch(() => false)) return true; await pausa(60); }
+  while (Date.now() < fim) { if (await ev(d, `Promise.resolve((${expr})).then(Boolean)`).catch(() => false)) return true; await pausa(60); }
   return false;
+}
+// Tira (ou devolve) a internet do aparelho inteiro: a página, o serviço que guarda o app, a nuvem e o site.
+async function internet(d, ligada) {
+  fake.down = fake.fora = !ligada;
+  const rede = { offline: !ligada, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
+  const { targetInfos } = await cdp("Target.getTargets");
+  for (const t of targetInfos.filter((t) => t.type === "service_worker" && t.browserContextId === d.contexto)) {
+    const { sessionId } = await cdp("Target.attachToTarget", { targetId: t.targetId, flatten: true });
+    await cdp("Network.enable", {}, sessionId);
+    await cdp("Network.emulateNetworkConditions", rede, sessionId);
+  }
+  await d.s("Network.enable");
+  await d.s("Network.emulateNetworkConditions", rede);
 }
 async function abrir(d, caminho = "") {
   const p = new Promise((f) => (d.carregou = f));
@@ -342,6 +368,31 @@ try {
   await forcar(B);
   ok("os dois aparelhos terminam iguais", (await ev(A, "JSON.stringify(COLS.map(k=>state[k].map(canon)))")) === (await ev(B, "JSON.stringify(COLS.map(k=>state[k].map(canon)))")));
 
+  console.log("\n— Nuvem: sem internet com a sessão vencida —");
+  // A sessão da conta vale 1 hora e a biblioteca renova sozinha; sem internet, a renovação não sai.
+  await ev(A, "(()=>{const k='estudo-em-caixas-conta',s=JSON.parse(localStorage.getItem(k));s.expires_at=Math.floor(Date.now()/1000)-60;localStorage.setItem(k,JSON.stringify(s));})()");
+  fake.down = true;
+  const errosAntes = A.erros.length;
+  await abrir(A);
+  ok("abre direto nos estudos", await ev(A, "!locked() && !!document.querySelector('.hero')"));
+  const vencida = await novoEstudo(A, "Feito com a sessão vencida");
+  const situacao = () => ev(A, "JSON.stringify({syncState,authKnown,trancado:locked(),user:!!user,rotulo:document.getElementById('accountLabel').textContent})");
+  // A biblioteca insiste por uns 25 s antes de desistir de renovar.
+  ok("quando a renovação desiste, continua aberto e avisa 'Sem conexão'", (await ate(A, "syncState==='offline' || authKnown", 45000)) && (await ev(A, "syncState==='offline' && !locked() && !document.getElementById('authForm') && document.getElementById('accountLabel').textContent==='Sem conexão'")), await situacao());
+  ok("o que foi feito nesse meio-tempo está guardado no aparelho", await ev(A, "JSON.parse(localStorage.getItem('estudo-em-caixas-v1')).courses.some(c=>c.title==='Feito com a sessão vencida')"));
+  await ev(A, "retry()");
+  await pausa(300);
+  ok("tentar de novo ainda sem internet não derruba para o login", (await ate(A, "syncState==='offline'", 45000)) && (await ev(A, "!locked() && !authKnown")), await situacao());
+  // O que a própria biblioteca escreve no console por não conseguir renovar não é defeito do app.
+  A.erros.splice(errosAntes, Infinity, ...A.erros.slice(errosAntes).filter((m) => !/Failed to fetch|AuthRetryableFetchError/.test(m)));
+  fake.down = false;
+  const t2 = Date.now();
+  await ev(A, "dispatchEvent(new Event('online'))");
+  // Depois de falhar, a biblioteca espera até 1 minuto para tentar renovar de novo.
+  ok("internet volta: renova a sessão e envia sozinho o que ficou guardado", (await ate(A, "user && syncState==='ok' && !unsent()", 100000)) && nomes("ana@teste.com", "estudo").includes("Feito com a sessão vencida"), `${Math.round((Date.now() - t2) / 1000)} s; ` + (await situacao()));
+  await ev(A, `(()=>{selected=${JSON.stringify(vencida)};page='detail';render();document.querySelector('[data-action=deleteCourse]').click();})()`);
+  await sinc(A); await forcar(B);
+
   console.log("\n— Nuvem: muitas linhas (paginação) —");
   fake.cap = 7;
   for (let i = 1; i <= 12; i++) await novaParte(B, ja, "Lote " + String(i).padStart(2, "0"));
@@ -405,6 +456,52 @@ try {
   ok("link de recuperação abre a tela de nova senha", await ev(A, "locked() && authMode==='newpass' && !document.querySelector('#authForm [name=email]') && !!document.querySelector('#authForm [name=password]')"));
   await ev(A, "(()=>{const f=document.getElementById('authForm');f.elements.password.value='novasenha9';f.requestSubmit();})()");
   ok("salva a nova senha e volta para o app", (await ate(A, "!locked() && authMode==='in'")) && fake.users.get("ana@teste.com").password === "novasenha9");
+
+  console.log("\n— Instalado no aparelho: abre e funciona sem internet —");
+  const P = await aparelho("P");
+  await abrir(P);
+  ok("o app se registra para ficar guardado no aparelho", await ate(P, "navigator.serviceWorker.controller", 15000));
+  const guardados = () => ev(P, "caches.open('estudo-em-caixas-v1').then(c=>c.keys()).then(k=>k.map(r=>r.url))");
+  ok("guarda a página, os ícones e a biblioteca da nuvem", await ate(P, "caches.open('estudo-em-caixas-v1').then(c=>c.keys()).then(k=>k.map(r=>r.url)).then(k=>k.includes(location.origin+'/') && k.filter(u=>u.endsWith('.png')).length===3 && k.includes(SUPABASE_JS))", 15000), JSON.stringify(await guardados()));
+  const manifesto = await P.s("Page.getAppManifest"), instalar = (await P.s("Page.getInstallabilityErrors")).installabilityErrors.map((e) => e.errorId).filter((e) => e !== "in-incognito");
+  ok("o navegador aceita instalar como aplicativo", /manifest\.webmanifest$/.test(manifesto.url) && manifesto.errors.length === 0 && instalar.length === 0, JSON.stringify([manifesto.errors, instalar]));
+  await entrar(P, "caio@teste.com", "segredo3", "up");
+  ok("entra na conta", (await ate(P, "user && !locked()")) && (await sinc(P)));
+  await novoEstudo(P, "Antes de ficar sem internet");
+  await sinc(P);
+  fake.marca = "nova";
+  await abrir(P);
+  ok("com internet, a versão nova do app chega na hora", (await ev(P, "document.querySelector('meta[name=teste-versao]')?.content")) === "nova");
+  await ate(P, "user"); await sinc(P);
+  await internet(P, false);
+  await abrir(P);
+  ok("sem internet nenhuma: abre do aparelho, direto nos estudos, na versão mais nova", await ev(P, "!navigator.onLine && !locked() && !!document.querySelector('.hero') && state.courses.length===1 && document.querySelector('meta[name=teste-versao]')?.content==='nova'"), await texto(P).then((t) => t.slice(0, 80)));
+  ok("a biblioteca da nuvem também vem do aparelho", await ate(P, "sb", 10000));
+  await novoEstudo(P, "Criado sem internet");
+  ok("o que é feito sem internet fica guardado e o app avisa 'Sem conexão'", (await ate(P, "syncState==='offline'", 45000)) && (await ev(P, "unsent() && !locked() && document.getElementById('accountLabel').textContent==='Sem conexão'")));
+  await abrir(P);
+  ok("fechar e abrir de novo, ainda sem internet: continua tudo lá", await ev(P, "!locked() && state.courses.length===2 && !!document.querySelector('.hero')"));
+  ok("nada chegou à nuvem enquanto isso", nomes("caio@teste.com", "estudo").length === 1);
+  const errosP = P.erros.filter((m) => !/Failed to fetch|AuthRetryableFetchError|ERR_INTERNET_DISCONNECTED/.test(m));
+  const t1 = Date.now();
+  await internet(P, true);
+  ok("a internet volta: sincroniza sozinho, sem ninguém tocar em nada", (await ate(P, "syncState==='ok' && !syncing && !unsent()", 90000)) && nomes("caio@teste.com", "estudo").includes("Criado sem internet"), `${Math.round((Date.now() - t1) / 1000)} s; na nuvem: ${JSON.stringify(nomes("caio@teste.com", "estudo"))}`);
+  ok("P: sem erros no console", errosP.length === 0, errosP.join(" | "));
+  ok("P: CSP não barrou nada do app", (await ev(P, "__csp.length")) === 0, await ev(P, "__csp.join(' | ')"));
+  fake.marca = "";
+
+  console.log("\n— Arquivo aberto direto do computador, sem internet (nem a biblioteca da nuvem carrega) —");
+  await B.s("Network.enable");
+  await B.s("Network.setBypassServiceWorker", { bypass: true });
+  await B.s("Network.setBlockedURLs", { urls: ["*cdn.jsdelivr.net*"] });
+  fake.down = true;
+  await abrir(B);
+  ok("abre direto nos estudos e avisa 'Sem conexão'", (await ate(B, "syncState==='offline'")) && (await ev(B, "!sb && !locked() && state.courses.length>0 && !!document.querySelector('.hero') && document.getElementById('accountLabel').textContent==='Sem conexão'")));
+  await novoEstudo(B, "Feito sem a biblioteca");
+  await B.s("Network.setBlockedURLs", { urls: [] });
+  fake.down = false;
+  await ev(B, "dispatchEvent(new Event('online'))");
+  ok("a internet volta: carrega a biblioteca e sincroniza sozinho", (await ate(B, "user && syncState==='ok' && !unsent()", 30000)) && nomes("ana@teste.com", "estudo").includes("Feito sem a biblioteca"));
 
   console.log("\n— Fechamento —");
   for (const d of [A, B]) {

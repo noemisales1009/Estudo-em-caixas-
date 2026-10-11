@@ -6,7 +6,7 @@
          e só conversa com o projeto do Supabase. Ao trocar de projeto, troque o endereço aqui também. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/@supabase/; style-src 'unsafe-inline'; img-src data:; connect-src 'self' https://cbijxuiqmiodzfthuuqn.supabase.co; base-uri 'none'; form-action 'none'"
+      content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/@supabase/; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self' https://cbijxuiqmiodzfthuuqn.supabase.co; base-uri 'none'; form-action 'none'"
     />
     <meta
       name="viewport"
@@ -15,6 +15,8 @@
     <meta name="theme-color" content="#356857" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Estudo em Caixas" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icones/icone-cheio-512.png" />
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23356857'/%3E%3Cpath d='M18 22h28M18 32h28M18 42h28' stroke='%23fff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E"
@@ -819,13 +821,28 @@
           padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
         }
       }
-      @media (max-width: 400px) {
-        #accountLabel {
+      @media (max-width: 560px) {
+        #accountLabel,
+        #signOutLabel {
           position: absolute;
           width: 1px;
           height: 1px;
           overflow: hidden;
           clip: rect(0, 0, 0, 0);
+        }
+      }
+      @media (max-width: 430px) {
+        .top {
+          gap: 8px;
+        }
+        .brand {
+          font-size: 17px;
+        }
+        .tools {
+          gap: 4px;
+        }
+        .tools button {
+          padding: 9px 7px;
         }
       }
       @page {
@@ -932,6 +949,12 @@
               />
             </svg>
           </button>
+          <button id="signOutButton" data-action="signOut" title="Sair da conta" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+            </svg>
+            <span id="signOutLabel">Sair</span>
+          </button>
         </div>
       </div>
     </header>
@@ -940,7 +963,8 @@
     </div>
     <main id="main"></main>
     <footer>
-      Criado por Michelle Carneiro · Aprender, lembrar e aplicar.<br /><span id="footerNote"
+      Frontend por Michelle Carneiro · Backend por Noemi · Aprender, lembrar e aplicar.<br /><span
+        id="footerNote"
         >Salvo neste navegador. Lembretes funcionam com o app aberto; não há sincronização
         automática.</span
       >
@@ -1167,6 +1191,7 @@
     />
     <script>
       "use strict";
+      // ---------- Configuração ----------
       // Nuvem (Supabase). A chave abaixo é a pública: quem protege os dados são as regras do banco
       // (supabase/schema.sql). Com os dois valores vazios, o app volta a funcionar só neste navegador.
       const SUPABASE_URL = "https://cbijxuiqmiodzfthuuqn.supabase.co";
@@ -1180,11 +1205,15 @@
       const COLS = ["courses", "parts", "sessions"];
       const TIPO = { courses: "estudo", parts: "parte", sessions: "sessao" };
       const CLOUD_KEY = "estudo-em-caixas-nuvem";
+      const ACCOUNT_KEY = "estudo-em-caixas-conta";
       const THEME_KEY = "estudo-em-caixas-tema";
       const KEY = "estudo-em-caixas-v1";
       const BOXES = { sustain: "Sustentação", season: "Temporada", sand: "Areia" };
       const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
       const STATUS = { active: "Em estudo", paused: "Pausado", finished: "Encerrado" };
+
+      // ---------- Estado ----------
+      const $ = (id) => document.getElementById(id);
       function fresh() {
         return {
           app: "estudo-em-caixas",
@@ -1217,6 +1246,8 @@
         syncing = false,
         syncAgain = false,
         syncTimer;
+
+      // ---------- Utilitários ----------
       function esc(v) {
         return String(v ?? "").replace(
           /[&<>"']/g,
@@ -1272,6 +1303,17 @@
           ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${label}</a>`
           : "";
       }
+      function notify(msg) {
+        const el = $("toast");
+        el.textContent = msg;
+        el.hidden = false;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => (el.hidden = true), 6500);
+      }
+
+      // ---------- Consultas aos estudos ----------
+      const findCourse = (id) => state.courses.find((c) => c.id === id);
+      const findPart = (id) => state.parts.find((p) => p.id === id);
       function courseParts(id) {
         return state.parts.filter((p) => p.course === id);
       }
@@ -1295,6 +1337,8 @@
       function overdue(s, done = false, now = today()) {
         return !!s && !done && dayNum(s) < dayNum(now);
       }
+
+      // ---------- Validação ----------
       const str = (v, max = 3000) => typeof v === "string" && v.length <= max;
       const optionalDate = (v) => v === "" || Number.isFinite(dayNum(v));
       function badCourse(c) {
@@ -1395,6 +1439,8 @@
           throw Error("Configuração inválida.");
         return d;
       }
+
+      // ---------- Armazenamento neste aparelho ----------
       // A data de criação mantém estudos e partes na mesma ordem em todos os aparelhos.
       function stamp(d) {
         for (const k of ["courses", "parts"])
@@ -1433,14 +1479,14 @@
         else cloud.base = null;
       } catch (e) {
         cloud.base = null;
-        document.getElementById("warning").hidden = false;
+        $("warning").hidden = false;
       }
       function store() {
         try {
           localStorage.setItem(KEY, JSON.stringify(state));
           return true;
         } catch (e) {
-          document.getElementById("warning").hidden = false;
+          $("warning").hidden = false;
           notify("Não foi possível salvar. Exporte um backup antes de fechar.");
           return false;
         }
@@ -1460,7 +1506,8 @@
         } catch (e) {}
       }
 
-      // ---- Nuvem: cada estudo, parte e sessão é uma linha na tabela, e cada aparelho guarda em
+      // ---------- Nuvem: sincronização ----------
+      // Cada estudo, parte e sessão é uma linha na tabela, e cada aparelho guarda em
       // cloud.base a última versão que viu na nuvem. Sincronizar é: baixar tudo, reaplicar por cima
       // o que mudou aqui desde a base, e enviar só a diferença. Assim nada se perde quando dois
       // aparelhos mexem em coisas diferentes, nem quando um deles ficou sem internet.
@@ -1606,10 +1653,10 @@
           }
         }
       }
-      function setSync(s) {
+      function setSync(s, wait = 60000) {
         syncState = s;
         clearTimeout(syncTimer);
-        if (s === "offline" || s === "error") syncTimer = setTimeout(retry, 60000);
+        if (s === "offline" || s === "error") syncTimer = setTimeout(retry, wait);
         renderChrome();
       }
       function queueSync(delay = 1500) {
@@ -1619,7 +1666,33 @@
       function retry() {
         if (!cloudReady) return;
         if (!sb) loadCloud();
-        else sync();
+        else if (user) sync();
+        else if (!authKnown && cloud.owner) renew();
+      }
+      // A sessão da conta vale pouco tempo e a biblioteca renova sozinha, mas sem internet não
+      // consegue e avisa "sem sessão". Ela só apaga a sessão guardada quando acabou de verdade:
+      // se ainda está no aparelho, é falta de conexão, e o app segue aberto.
+      function keptSession() {
+        try {
+          return !!localStorage.getItem(ACCOUNT_KEY);
+        } catch (e) {
+          return false;
+        }
+      }
+      // Depois de uma renovação que falhou, a biblioteca espera até 1 minuto para tentar outra.
+      // Perguntar de novo a cada 15 s faz a sincronização voltar logo que a internet volta.
+      function waitSession() {
+        setSync("offline", 15000);
+      }
+      async function renew() {
+        let session = null;
+        try {
+          session = (await sb.auth.getSession()).data.session;
+        } catch (e) {}
+        if (user || authKnown) return;
+        if (session) onAuth("TOKEN_REFRESHED", session);
+        else if (keptSession()) waitSession();
+        else onAuth("SIGNED_OUT", null);
       }
       function refresh() {
         // Um formulário aberto pode apontar para algo que acabou de ser excluído em outro aparelho.
@@ -1631,7 +1704,7 @@
             completionDialog: gone("parts", completePart),
           };
         for (const [id, lost] of Object.entries(stale)) {
-          const dialog = document.getElementById(id);
+          const dialog = $(id);
           if (dialog.open && lost) {
             dialog.close();
             notify("Este item foi excluído em outro aparelho.");
@@ -1639,8 +1712,10 @@
         }
         render();
       }
+
+      // ---------- Nuvem: conta ----------
       function loadCloud() {
-        if (!cloudReady || sb || document.getElementById("supabaseJs")) return;
+        if (!cloudReady || sb || $("supabaseJs")) return;
         const s = document.createElement("script");
         s.id = "supabaseJs";
         s.src = SUPABASE_JS;
@@ -1648,7 +1723,7 @@
         s.crossOrigin = "anonymous";
         s.onload = () => {
           sb = globalThis.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-            auth: { storageKey: "estudo-em-caixas-conta" },
+            auth: { storageKey: ACCOUNT_KEY },
           });
           // O Supabase pede que nada dele seja chamado de dentro deste aviso; daí o setTimeout.
           sb.auth.onAuthStateChange((event, session) =>
@@ -1667,6 +1742,10 @@
       }
       function onAuth(event, session) {
         const u = session?.user || null;
+        if (!u && event === "INITIAL_SESSION" && cloud.owner && keptSession()) {
+          waitSession();
+          return;
+        }
         authKnown = true;
         if (event === "PASSWORD_RECOVERY") authMode = "newpass";
         if (u && cloud.owner && cloud.owner !== u.id && COLS.some((k) => state[k].length)) {
@@ -1695,7 +1774,7 @@
           clearTimeout(syncTimer);
           syncState = "out";
         }
-        document.getElementById("main").dataset.view = "";
+        $("main").dataset.view = "";
         render();
         if (entered) sync();
       }
@@ -1724,7 +1803,7 @@
         user = null;
         authKnown = true;
         page = "home";
-        document.getElementById("accountDialog").close();
+        $("accountDialog").close();
         render();
       }
       function authMessage(e) {
@@ -1751,6 +1830,8 @@
         console.warn("Conta:", code || "erro sem código");
         return "Não foi possível concluir agora. Tente de novo em instantes.";
       }
+
+      // ---------- Topo da página e tela de login ----------
       // Com a nuvem ligada, o app só abre depois do login. Um aparelho que já entrou antes abre
       // direto, mesmo sem internet, e sincroniza quando a conexão voltar.
       function locked() {
@@ -1775,22 +1856,22 @@
       }
       function renderChrome() {
         const lock = locked(),
-          button = document.getElementById("accountButton"),
+          button = $("accountButton"),
           email = user?.email || cloud.email;
         document.body.classList.toggle("locked", lock);
-        button.hidden = !cloudReady || lock;
+        button.hidden = $("signOutButton").hidden = !cloudReady || lock;
         button.title = "Conta e sincronização";
         button.dataset.state = user || syncState === "offline" ? syncState : "syncing";
-        document.getElementById("accountLabel").textContent = user
+        $("accountLabel").textContent = user
           ? { syncing: "Sincronizando…", ok: "Sincronizado", error: "Não sincronizou" }[
               syncState
             ] || "Sem conexão"
           : syncState === "offline"
             ? "Sem conexão"
             : "Conectando…";
-        document.getElementById("accountEmail").textContent = email;
-        document.getElementById("accountStatus").textContent = syncText();
-        document.getElementById("footerNote").textContent = !cloudReady
+        $("accountEmail").textContent = email;
+        $("accountStatus").textContent = syncText();
+        $("footerNote").textContent = !cloudReady
           ? "Salvo neste navegador. Lembretes funcionam com o app aberto; não há sincronização automática."
           : lock
             ? "Seus estudos ficam guardados na sua conta. Lembretes funcionam com o app aberto."
@@ -1801,36 +1882,61 @@
           title: "Entrar",
           button: "Entrar",
           text: "Seus estudos ficam guardados na sua conta e aparecem no celular e no computador.",
+          links: [
+            ["up", "Criar conta"],
+            ["forgot", "Esqueci minha senha"],
+          ],
         },
         up: {
           title: "Criar minha conta",
           button: "Criar conta",
           text: "Use seu e-mail e escolha uma senha. Os estudos que já estiverem neste aparelho vão junto para a conta.",
+          links: [["in", "Já tenho conta"]],
         },
         forgot: {
           title: "Esqueci minha senha",
           button: "Enviar link para nova senha",
           text: "Informe seu e-mail e enviaremos um link para você criar uma nova senha.",
+          links: [["in", "Já tenho conta"]],
         },
         newpass: {
           title: "Criar nova senha",
           button: "Salvar nova senha",
           text: "Escolha a nova senha da sua conta.",
+          links: [],
         },
       };
       function renderLogin(main, info = "") {
         const m = AUTH[authMode],
-          email = document.querySelector("#authForm [name=email]")?.value ?? cloud.email;
+          email = document.querySelector("#authForm [name=email]")?.value ?? cloud.email,
+          expired = authMode === "in" && cloud.owner,
+          emailField = `<label class="field"><span>E-mail</span><input name="email" type="email" required autocomplete="username" value="${esc(email)}"></label>`,
+          passwordField = `<label class="field"><span>${authMode === "newpass" ? "Nova senha" : "Senha"}</span><input name="password" type="password" required minlength="6" autocomplete="${authMode === "in" ? "current-password" : "new-password"}">${authMode === "in" ? "" : "<small>Pelo menos 6 caracteres.</small>"}</label>`;
         main.dataset.view = "login:" + authMode;
-        main.innerHTML = `<section class="login panel"><div class="eyebrow">Aprender com intenção</div><h1>${m.title}</h1><p class="muted">${authMode === "in" && cloud.owner ? "Sua sessão terminou. Entre de novo para continuar; os estudos deste aparelho estão guardados." : m.text}</p><form id="authForm">${authMode === "newpass" ? "" : `<label class="field"><span>E-mail</span><input name="email" type="email" required autocomplete="username" value="${esc(email)}"></label>`}${authMode === "forgot" ? "" : `<label class="field"><span>${authMode === "newpass" ? "Nova senha" : "Senha"}</span><input name="password" type="password" required minlength="6" autocomplete="${authMode === "in" ? "current-password" : "new-password"}">${authMode === "in" ? "" : "<small>Pelo menos 6 caracteres.</small>"}</label>`}${info ? `<p class="note">${esc(info)}</p>` : ""}<p class="error" id="authError" role="alert"></p><button class="primary wide" type="submit">${m.button}</button></form><div class="actions">${authMode === "in" ? '<button data-action="authMode" data-mode="up">Criar conta</button><button data-action="authMode" data-mode="forgot">Esqueci minha senha</button>' : authMode === "newpass" ? "" : '<button data-action="authMode" data-mode="in">Já tenho conta</button>'}</div></section>`;
+        main.innerHTML = `
+          <section class="login panel">
+            <div class="eyebrow">Aprender com intenção</div>
+            <h1>${m.title}</h1>
+            <p class="muted">${expired ? "Sua sessão terminou. Entre de novo para continuar; os estudos deste aparelho estão guardados." : m.text}</p>
+            <form id="authForm">
+              ${authMode === "newpass" ? "" : emailField}
+              ${authMode === "forgot" ? "" : passwordField}
+              ${info ? `<p class="note">${esc(info)}</p>` : ""}
+              <p class="error" id="authError" role="alert"></p>
+              <button class="primary wide" type="submit">${m.button}</button>
+            </form>
+            <div class="actions">
+              ${m.links.map(([mode, label]) => `<button data-action="authMode" data-mode="${mode}">${label}</button>`).join("")}
+            </div>
+          </section>`;
       }
       document.addEventListener("submit", async (e) => {
         if (e.target.id !== "authForm") return;
         e.preventDefault();
         const data = Object.fromEntries(new FormData(e.target)),
-          error = document.getElementById("authError"),
+          error = $("authError"),
           button = e.target.querySelector("[type=submit]"),
-          main = document.getElementById("main"),
+          main = $("main"),
           email = (data.email || "").trim(),
           here = /^https?:$/.test(location.protocol)
             ? location.origin + location.pathname
@@ -1885,6 +1991,8 @@
           button.disabled = false;
         }
       });
+
+      // ---------- Tema claro e escuro ----------
       const darkQuery = matchMedia("(prefers-color-scheme: dark)");
       function savedTheme() {
         try {
@@ -1895,20 +2003,15 @@
         }
       }
       function applyTheme(t) {
-        const button = document.getElementById("themeButton");
+        const button = $("themeButton");
         document.documentElement.dataset.theme = t;
         document.querySelector("meta[name=theme-color]").content =
           t === "dark" ? "#1b221f" : "#356857";
         button.title = t === "dark" ? "Usar modo claro" : "Usar modo escuro";
         button.setAttribute("aria-label", button.title);
       }
-      function notify(msg) {
-        const el = document.getElementById("toast");
-        el.textContent = msg;
-        el.hidden = false;
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => (el.hidden = true), 6500);
-      }
+
+      // ---------- Agenda e revisões ----------
       function weeklyMinutes(now = today()) {
         const begin = addDays(now, -6);
         return state.sessions
@@ -1967,18 +2070,23 @@
       function partStatus(p) {
         return p.done ? "Concluída" : overdue(p.deadline) ? "Prazo passou" : "Pendente";
       }
-      function courseCard(c) {
-        const p = progress(c.id),
-          n = nextPart(c.id);
-        return `<article class="card"><div class="row"><h3>${esc(c.title)}</h3><span class="badge">${STATUS[c.status]}</span></div><p class="muted">${esc(c.goal)}</p><div class="progress" role="progressbar" aria-label="Partes concluídas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p.percent}"><span style="width:${p.percent}%"></span></div><p class="muted">${p.done} de ${p.total} partes concluídas · ${p.percent}%</p><p>◷ ${esc(scheduleLabel(c))}</p>${c.deadline ? `<p><span class="badge ${overdue(c.deadline, c.status === "finished") ? "overdue" : ""}">Prazo: ${fmt(c.deadline)}</span></p>` : ""}${n ? `<p><b>Próxima parte:</b> ${esc(n.title)}</p>` : p.total ? '<p class="muted">Todas as partes foram concluídas. Você pode revisar ou encerrar o estudo.</p>' : '<p class="muted">Divida o estudo em pequenas partes para acompanhar a evolução.</p>'}<div class="actions"><button class="small primary" data-action="open" data-id="${esc(c.id)}">Ver estudo →</button><button class="small" data-action="session" data-id="${esc(c.id)}">Registrar sessão</button><button class="small" data-action="editCourse" data-id="${esc(c.id)}">Editar</button></div></article>`;
-      }
-      function slot(row, rows) {
-        const c = state.courses.find((c) => c.id === row.course),
-          n = nextPart(c.id);
-        return `<article class="slot"><div class="time">${row.start}–${row.end}</div><div class="content"><div class="parttitle"><h3>${esc(c.title)}</h3><span class="badge ${c.box}">${BOXES[c.box]}</span>${row.logged ? '<span class="badge">Sessão registrada neste dia</span>' : ""}${overlaps(row, rows) ? '<span class="badge overdue">Horários sobrepostos</span>' : ""}</div><p>${n ? "Parte sugerida: " + esc(n.title) : "Revisar o que foi aprendido ou definir a próxima parte."}</p>${n ? `<p><b>Vou usar para:</b> ${esc(n.application)}</p>` : ""}${c.nextStep ? `<p class="muted">Retome por aqui: ${esc(c.nextStep)}</p>` : ""}<div class="actions"><button class="small" data-action="open" data-id="${esc(c.id)}">Ver estudo</button><button class="small primary" data-action="session" data-id="${esc(c.id)}" data-date="${row.date}">Registrar o que estudei</button></div></div></article>`;
-      }
+
+      // ---------- Telas ----------
+      const BOX_TEXT = {
+        sustain: "Fortalecer conhecimentos que apoiam sua base e seu trabalho.",
+        season: "Aprender o necessário para a entrega do projeto atual.",
+        sand: "Explorar por curiosidade; horários e prazos são opcionais.",
+      };
+      const PAGES = {
+        home: renderHome,
+        agenda: renderAgenda,
+        studies: renderStudies,
+        detail: renderDetail,
+        review: renderReview,
+        backup: renderBackup,
+      };
       function render() {
-        const main = document.getElementById("main"),
+        const main = $("main"),
           current = page === "detail" ? "studies" : page;
         renderChrome();
         if (locked()) {
@@ -1992,78 +2100,279 @@
           .forEach((b) =>
             b.setAttribute("aria-current", b.dataset.page === current ? "page" : "false"),
           );
-        if (page === "detail") renderDetail(main);
-        else if (page === "home") renderHome(main);
-        else if (page === "studies") renderStudies(main);
-        else if (page === "agenda") renderAgenda(main);
-        else if (page === "review") renderReview(main);
-        else renderBackup(main);
+        (Object.hasOwn(PAGES, page) ? PAGES[page] : renderBackup)(main);
       }
+
+      // Pedaços que se repetem nas telas. Atenção ao mexer: o texto de um <p> fica sempre numa
+      // linha só, porque em cartões e sessões o parágrafo mostra as quebras de linha como estão.
+      function hero(eyebrow, title, text = "", side = "") {
+        return `
+          <section class="hero">
+            <div>
+              <div class="eyebrow">${eyebrow}</div>
+              <h1>${title}</h1>
+              ${text ? `<p class="muted">${text}</p>` : ""}
+            </div>
+            ${side}
+          </section>`;
+      }
+      function stat(value, label) {
+        return `<div class="stat"><b>${value}</b><span>${label}</span></div>`;
+      }
+      function deadlineCard(title, context, box, deadline, button) {
+        const late = overdue(deadline);
+        return `
+          <div class="card">
+            <div class="row">
+              <div><h3>${esc(title)}</h3><span class="muted">${esc(context)} · ${BOXES[box]}</span></div>
+              <span class="badge ${late ? "overdue" : ""}">${fmt(deadline)}${late ? " · prazo passou" : ""}</span>
+            </div>
+            ${button}
+          </div>`;
+      }
+      function courseCard(c) {
+        const p = progress(c.id),
+          n = nextPart(c.id),
+          id = esc(c.id),
+          next = n
+            ? `<p><b>Próxima parte:</b> ${esc(n.title)}</p>`
+            : p.total
+              ? '<p class="muted">Todas as partes foram concluídas. Você pode revisar ou encerrar o estudo.</p>'
+              : '<p class="muted">Divida o estudo em pequenas partes para acompanhar a evolução.</p>';
+        return `
+          <article class="card">
+            <div class="row"><h3>${esc(c.title)}</h3><span class="badge">${STATUS[c.status]}</span></div>
+            <p class="muted">${esc(c.goal)}</p>
+            <div class="progress" role="progressbar" aria-label="Partes concluídas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p.percent}"><span style="width:${p.percent}%"></span></div>
+            <p class="muted">${p.done} de ${p.total} partes concluídas · ${p.percent}%</p>
+            <p>◷ ${esc(scheduleLabel(c))}</p>
+            ${c.deadline ? `<p><span class="badge ${overdue(c.deadline, c.status === "finished") ? "overdue" : ""}">Prazo: ${fmt(c.deadline)}</span></p>` : ""}
+            ${next}
+            <div class="actions">
+              <button class="small primary" data-action="open" data-id="${id}">Ver estudo →</button>
+              <button class="small" data-action="session" data-id="${id}">Registrar sessão</button>
+              <button class="small" data-action="editCourse" data-id="${id}">Editar</button>
+            </div>
+          </article>`;
+      }
+      function slot(row, rows) {
+        const c = findCourse(row.course),
+          n = nextPart(c.id),
+          id = esc(c.id);
+        return `
+          <article class="slot">
+            <div class="time">${row.start}–${row.end}</div>
+            <div class="content">
+              <div class="parttitle">
+                <h3>${esc(c.title)}</h3>
+                <span class="badge ${c.box}">${BOXES[c.box]}</span>
+                ${row.logged ? '<span class="badge">Sessão registrada neste dia</span>' : ""}
+                ${overlaps(row, rows) ? '<span class="badge overdue">Horários sobrepostos</span>' : ""}
+              </div>
+              <p>${n ? "Parte sugerida: " + esc(n.title) : "Revisar o que foi aprendido ou definir a próxima parte."}</p>
+              ${n ? `<p><b>Vou usar para:</b> ${esc(n.application)}</p>` : ""}
+              ${c.nextStep ? `<p class="muted">Retome por aqui: ${esc(c.nextStep)}</p>` : ""}
+              <div class="actions">
+                <button class="small" data-action="open" data-id="${id}">Ver estudo</button>
+                <button class="small primary" data-action="session" data-id="${id}" data-date="${row.date}">Registrar o que estudei</button>
+              </div>
+            </div>
+          </article>`;
+      }
+      function partCard(part, i) {
+        const id = esc(part.id),
+          meta =
+            (part.deadline ? "Prazo: " + fmt(part.deadline) : "") +
+            (part.estimate ? " · " + part.estimate + " min estimados" : ""),
+          buttons = part.done
+            ? `<button class="small" data-action="reviewPart" data-id="${id}">Revisar agora</button>
+               <button class="small" data-action="reopenPart" data-id="${id}">Reabrir parte</button>`
+            : `<button class="small primary" data-action="complete" data-id="${id}">Concluir e refletir</button>`;
+        return `
+          <article class="card">
+            <div class="parttitle">
+              <h3>${i + 1}. ${esc(part.title)}</h3>
+              <span class="badge ${overdue(part.deadline, part.done) ? "overdue" : ""}">${partStatus(part)}</span>
+            </div>
+            ${meta ? `<p class="muted">${meta}</p>` : ""}
+            <p class="purpose"><b>Vou fazer com este aprendizado:</b>\n${esc(part.application)}</p>
+            ${part.evidence ? `<p><b>Como conferir se entendi:</b> ${esc(part.evidence)}</p>` : ""}
+            ${part.done ? `<p><b>O que entendi:</b> ${esc(part.learned)}</p><p class="muted">Concluída em ${fmt(part.completed)}${part.reviewDate ? " · revisar em " + fmt(part.reviewDate) : ""}</p>` : ""}
+            ${link(part.url)}
+            <div class="actions">
+              <button class="small" data-action="editPart" data-id="${id}">Editar</button>
+              ${buttons}
+              <button class="small danger" data-action="deletePart" data-id="${id}">Excluir</button>
+            </div>
+          </article>`;
+      }
+      function sessionEntry(s) {
+        return `
+          <article class="session">
+            <div class="row">
+              <b>${fmt(s.date)} · ${s.minutes} min</b>
+              <button class="small danger" data-action="deleteSession" data-id="${esc(s.id)}">Excluir registro</button>
+            </div>
+            ${s.part ? `<p class="muted">${esc(findPart(s.part)?.title || "Parte removida")}</p>` : ""}
+            <p><b>Aprendi:</b> ${esc(s.learned)}</p>
+            <p><b>Continuar por:</b> ${esc(s.nextStep)}</p>
+          </article>`;
+      }
+      function reviewCard(p) {
+        const c = findCourse(p.course);
+        return `
+          <article class="card">
+            <span class="badge ${c.box}">${BOXES[c.box]} · ${STATUS[c.status]}</span>
+            <h3 style="margin-top:10px">${esc(p.title)}</h3>
+            <p class="muted">${esc(c.title)}${p.reviewDate ? " · revisar em " + fmt(p.reviewDate) : ""}</p>
+            <p class="purpose"><b>Aplicação:</b> ${esc(p.application)}</p>
+            <div class="actions">
+              <button class="small primary" data-action="reviewPart" data-id="${esc(p.id)}">Revisar e responder</button>
+              <button class="small" data-action="open" data-id="${esc(c.id)}">Ver estudo</button>
+            </div>
+          </article>`;
+      }
+
       function renderHome(main) {
         const active = state.courses.filter((c) => c.status === "active"),
           pending = state.parts.filter((p) => !p.done && active.some((c) => c.id === p.course)),
           rows = agenda(today(), 1),
           reviews = dueReviews(),
           week = addDays(today(), -6),
+          soon = addDays(today(), 7),
+          byDeadline = (a, b) => a.deadline.localeCompare(b.deadline),
           recentDone = state.parts.filter(
             (p) => p.done && p.completed >= week && p.completed <= today(),
-          ).length;
-        main.innerHTML = `<section class="hero"><div><div class="eyebrow">Aprender com intenção</div><h1>Seu próximo passo<br>tem hora e propósito.</h1><p class="muted">Estude por caixa, divida o conteúdo em partes e guarde o ponto exato de onde continuar.</p></div><div class="heroactions"><button class="primary" data-action="newCourse">+ Adicionar estudo</button><button data-page="agenda">Ver minha agenda</button></div></section><div class="stats"><div class="stat"><b>${active.length}</b><span>estudos ativos</span></div><div class="stat"><b>${pending.length}</b><span>partes pendentes</span></div><div class="stat"><b>${weeklyMinutes()}</b><span>minutos nos últimos 7 dias</span></div><div class="stat"><b>${recentDone}</b><span>partes concluídas nos últimos 7 dias</span></div></div><div class="two"><section class="panel"><div class="panelhead"><h2>Minha agenda de hoje</h2><span class="badge">${fmt(today())}</span></div>${rows.length ? rows.map((r) => slot(r, rows)).join("") : '<div class="empty">Nenhum horário definido para hoje. Cadastre dias e horários em um estudo.</div>'}<button data-page="agenda">Ver próximos 7 dias →</button></section><section class="panel"><h2>Para não perder o fio</h2>${
-          active
+          ).length,
+          threads = active
             .filter((c) => c.nextStep)
             .slice(0, 3)
             .map(
-              (c) =>
-                `<div class="card"><h3>${esc(c.title)}</h3><p>${esc(c.nextStep)}</p><button class="small" data-action="open" data-id="${esc(c.id)}">Retomar →</button></div>`,
+              (c) => `
+                <div class="card">
+                  <h3>${esc(c.title)}</h3>
+                  <p>${esc(c.nextStep)}</p>
+                  <button class="small" data-action="open" data-id="${esc(c.id)}">Retomar →</button>
+                </div>`,
             )
-            .join("") ||
-          '<p class="muted">Ao registrar uma sessão, escreva a aula, página ou exercício de onde vai continuar.</p>'
-        }<p><b>${reviews.length}</b> revisão(ões) para hoje ou com data passada.</p><button data-page="review">Revisar aprendizados</button></section></div><section class="panel"><div class="panelhead"><h2>Prazos que merecem atenção</h2><span class="badge">Sem cobrança na caixa de areia</span></div>${active
-          .filter((c) => c.deadline && c.deadline <= addDays(today(), 7))
-          .sort((a, b) => a.deadline.localeCompare(b.deadline))
-          .map(
-            (c) =>
-              `<div class="card"><div class="row"><div><h3>${esc(c.title)}</h3><span class="muted">Prazo do estudo · ${BOXES[c.box]}</span></div><span class="badge ${overdue(c.deadline) ? "overdue" : ""}">${fmt(c.deadline)}${overdue(c.deadline) ? " · prazo passou" : ""}</span></div><button class="small" data-action="editCourse" data-id="${esc(c.id)}">Revisar prazo e horários</button></div>`,
-          )
-          .join("")}${
-          pending
-            .filter((p) => p.deadline && p.deadline <= addDays(today(), 7))
-            .sort((a, b) => a.deadline.localeCompare(b.deadline))
+            .join(""),
+          courseDeadlines = active
+            .filter((c) => c.deadline && c.deadline <= soon)
+            .sort(byDeadline)
+            .map((c) =>
+              deadlineCard(
+                c.title,
+                "Prazo do estudo",
+                c.box,
+                c.deadline,
+                `<button class="small" data-action="editCourse" data-id="${esc(c.id)}">Revisar prazo e horários</button>`,
+              ),
+            )
+            .join(""),
+          partDeadlines = pending
+            .filter((p) => p.deadline && p.deadline <= soon)
+            .sort(byDeadline)
             .slice(0, 8)
             .map((p) => {
-              const c = state.courses.find((c) => c.id === p.course);
-              return `<div class="card"><div class="row"><div><h3>${esc(p.title)}</h3><span class="muted">${esc(c.title)} · ${BOXES[c.box]}</span></div><span class="badge ${overdue(p.deadline) ? "overdue" : ""}">${fmt(p.deadline)}${overdue(p.deadline) ? " · prazo passou" : ""}</span></div><button class="small" data-action="open" data-id="${esc(c.id)}">Ver próximo passo</button></div>`;
+              const c = findCourse(p.course);
+              return deadlineCard(
+                p.title,
+                c.title,
+                c.box,
+                p.deadline,
+                `<button class="small" data-action="open" data-id="${esc(c.id)}">Ver próximo passo</button>`,
+              );
             })
-            .join("") || '<p class="muted">Nenhuma parte com prazo próximo ou passado.</p>'
-        }</section>`;
+            .join("");
+        main.innerHTML = `
+          ${hero(
+            "Aprender com intenção",
+            "Seu próximo passo<br>tem hora e propósito.",
+            "Estude por caixa, divida o conteúdo em partes e guarde o ponto exato de onde continuar.",
+            `<div class="heroactions">
+              <button class="primary" data-action="newCourse">+ Adicionar estudo</button>
+              <button data-page="agenda">Ver minha agenda</button>
+            </div>`,
+          )}
+          <div class="stats">
+            ${stat(active.length, "estudos ativos")}
+            ${stat(pending.length, "partes pendentes")}
+            ${stat(weeklyMinutes(), "minutos nos últimos 7 dias")}
+            ${stat(recentDone, "partes concluídas nos últimos 7 dias")}
+          </div>
+          <div class="two">
+            <section class="panel">
+              <div class="panelhead"><h2>Minha agenda de hoje</h2><span class="badge">${fmt(today())}</span></div>
+              ${rows.map((r) => slot(r, rows)).join("") || '<div class="empty">Nenhum horário definido para hoje. Cadastre dias e horários em um estudo.</div>'}
+              <button data-page="agenda">Ver próximos 7 dias →</button>
+            </section>
+            <section class="panel">
+              <h2>Para não perder o fio</h2>
+              ${threads || '<p class="muted">Ao registrar uma sessão, escreva a aula, página ou exercício de onde vai continuar.</p>'}
+              <p><b>${reviews.length}</b> revisão(ões) para hoje ou com data passada.</p>
+              <button data-page="review">Revisar aprendizados</button>
+            </section>
+          </div>
+          <section class="panel">
+            <div class="panelhead"><h2>Prazos que merecem atenção</h2><span class="badge">Sem cobrança na caixa de areia</span></div>
+            ${courseDeadlines}
+            ${partDeadlines || '<p class="muted">Nenhuma parte com prazo próximo ou passado.</p>'}
+          </section>`;
       }
       function renderStudies(main) {
-        main.innerHTML = `<section class="hero"><div><div class="eyebrow">Um lugar para cada aprendizado</div><h1>Estudos nas minhas caixas</h1><p class="muted">O progresso é a proporção de partes concluídas. O tempo estudado aparece no histórico de sessões.</p></div><button class="primary" data-action="newCourse">+ Adicionar estudo</button></section><section class="grid">${Object.entries(
-          BOXES,
-        )
-          .map(
-            ([k, label]) =>
-              `<div class="column ${k}"><h2>${label}</h2><p class="description">${k === "sustain" ? "Fortalecer conhecimentos que apoiam sua base e seu trabalho." : k === "season" ? "Aprender o necessário para a entrega do projeto atual." : "Explorar por curiosidade; horários e prazos são opcionais."}</p>${
-                state.courses
-                  .filter((c) => c.box === k)
-                  .map(courseCard)
-                  .join("") || '<div class="empty">O que você quer estudar nesta caixa?</div>'
-              }<button class="wide" data-action="newCourse" data-box="${k}">+ Estudo nesta caixa</button></div>`,
-          )
-          .join("")}</section>`;
+        const column = ([box, label]) => `
+          <div class="column ${box}">
+            <h2>${label}</h2>
+            <p class="description">${BOX_TEXT[box]}</p>
+            ${
+              state.courses
+                .filter((c) => c.box === box)
+                .map(courseCard)
+                .join("") || '<div class="empty">O que você quer estudar nesta caixa?</div>'
+            }
+            <button class="wide" data-action="newCourse" data-box="${box}">+ Estudo nesta caixa</button>
+          </div>`;
+        main.innerHTML = `
+          ${hero(
+            "Um lugar para cada aprendizado",
+            "Estudos nas minhas caixas",
+            "O progresso é a proporção de partes concluídas. O tempo estudado aparece no histórico de sessões.",
+            '<button class="primary" data-action="newCourse">+ Adicionar estudo</button>',
+          )}
+          <section class="grid">${Object.entries(BOXES).map(column).join("")}</section>`;
       }
       function renderAgenda(main) {
         const rows = agenda(),
-          days = Array.from({ length: 7 }, (_, i) => addDays(today(), i));
-        main.innerHTML = `<section class="hero"><div><div class="eyebrow">Tempo reservado para aprender</div><h1>Minha agenda</h1><p class="muted">Próximos 7 dias · horários locais deste dispositivo. Ajuste os horários em “Editar” no estudo.</p></div><div class="heroactions"><button class="primary" data-action="reminders">${state.reminders ? "Desativar lembretes" : "Ativar lembretes"}</button><button data-action="print">Imprimir plano de estudos</button></div></section><p class="note">${state.reminders ? "Lembretes ativados." : "Lembretes desativados."} Eles dependem de esta página permanecer aberta e do navegador permitir notificações. Com o navegador fechado ou suspenso, não há alerta garantido. Para esses casos, use também o alarme do celular.</p>${state.courses.some((c) => c.status === "active" && c.deadline && c.deadline < today()) ? '<p class="note">Há estudos com prazo passado. Seus horários deixam de aparecer após a data final; edite o prazo ou encerre o estudo para atualizar o plano.</p>' : ""}<section class="panel">${days
-          .map((day) => {
-            const slots = rows.filter((r) => r.date === day);
-            return `<section class="agenda-day"><h2>${day === today() ? "Hoje" : DAYS[weekday(day)]} · ${fmt(day)}</h2>${slots.length ? slots.map((r) => slot(r, rows)).join("") : '<p class="muted">Sem horário reservado.</p>'}</section>`;
-          })
-          .join("")}</section>`;
+          days = Array.from({ length: 7 }, (_, i) => addDays(today(), i)),
+          expired = state.courses.some(
+            (c) => c.status === "active" && c.deadline && c.deadline < today(),
+          ),
+          day = (date) => `
+            <section class="agenda-day">
+              <h2>${date === today() ? "Hoje" : DAYS[weekday(date)]} · ${fmt(date)}</h2>
+              ${
+                rows
+                  .filter((r) => r.date === date)
+                  .map((r) => slot(r, rows))
+                  .join("") || '<p class="muted">Sem horário reservado.</p>'
+              }
+            </section>`;
+        main.innerHTML = `
+          ${hero(
+            "Tempo reservado para aprender",
+            "Minha agenda",
+            "Próximos 7 dias · horários locais deste dispositivo. Ajuste os horários em “Editar” no estudo.",
+            `<div class="heroactions">
+              <button class="primary" data-action="reminders">${state.reminders ? "Desativar lembretes" : "Ativar lembretes"}</button>
+              <button data-action="print">Imprimir plano de estudos</button>
+            </div>`,
+          )}
+          <p class="note">${state.reminders ? "Lembretes ativados." : "Lembretes desativados."} Eles dependem de esta página permanecer aberta e do navegador permitir notificações. Com o navegador fechado ou suspenso, não há alerta garantido. Para esses casos, use também o alarme do celular.</p>
+          ${expired ? '<p class="note">Há estudos com prazo passado. Seus horários deixam de aparecer após a data final; edite o prazo ou encerre o estudo para atualizar o plano.</p>' : ""}
+          <section class="panel">${days.map(day).join("")}</section>`;
       }
       function renderDetail(main) {
-        const c = state.courses.find((x) => x.id === selected);
+        const c = findCourse(selected);
         if (!c) {
           page = "studies";
           render();
@@ -2072,44 +2381,138 @@
         const p = progress(c.id),
           parts = courseParts(c.id),
           sessions = courseSessions(c.id),
-          total = sessions.reduce((n, s) => n + s.minutes, 0);
-        main.innerHTML = `<button class="headerback" data-page="studies">← Meus estudos</button><section class="hero"><div><span class="badge ${c.box}">${BOXES[c.box]}</span><h1>${esc(c.title)}</h1><p class="muted">${esc(c.goal)}</p>${c.project ? `<p>Projeto de referência: ${esc(c.project)}</p>` : ""}</div><div class="heroactions"><button class="primary" data-action="session" data-id="${esc(c.id)}">Registrar sessão</button><button data-action="editCourse" data-id="${esc(c.id)}">Editar estudo e horários</button></div></section><div class="stats"><div class="stat"><b>${p.percent}%</b><span>${p.done} de ${p.total} partes concluídas</span></div><div class="stat"><b>${total}</b><span>minutos estudados no total</span></div><div class="stat"><b>${sessions.length}</b><span>sessões registradas</span></div><div class="stat"><b style="font-size:18px">${fmt(c.deadline)}</b><span>${STATUS[c.status]}</span></div></div><section class="panel"><div class="linkrow"><b>◷ ${esc(scheduleLabel(c))}</b>${link(c.url)}</div>${c.nextStep ? `<p class="callout"><b>Retome por aqui:</b>\n${esc(c.nextStep)}</p>` : ""}</section><section class="panel"><div class="panelhead"><h2>Partes do meu estudo</h2><button class="primary" data-action="newPart" data-id="${esc(c.id)}">+ Adicionar parte</button></div><p class="muted">Para cada parte: o que estudar, como conferir se entendeu e o que fazer com esse aprendizado.</p>${parts.length ? parts.map((part, i) => `<article class="card"><div class="parttitle"><h3>${i + 1}. ${esc(part.title)}</h3><span class="badge ${overdue(part.deadline, part.done) ? "overdue" : ""}">${partStatus(part)}</span></div>${part.deadline || part.estimate ? `<p class="muted">${part.deadline ? "Prazo: " + fmt(part.deadline) : ""}${part.estimate ? " · " + part.estimate + " min estimados" : ""}</p>` : ""}<p class="purpose"><b>Vou fazer com este aprendizado:</b>\n${esc(part.application)}</p>${part.evidence ? `<p><b>Como conferir se entendi:</b> ${esc(part.evidence)}</p>` : ""}${part.done ? `<p><b>O que entendi:</b> ${esc(part.learned)}</p><p class="muted">Concluída em ${fmt(part.completed)}${part.reviewDate ? " · revisar em " + fmt(part.reviewDate) : ""}</p>` : ""}${link(part.url)}<div class="actions"><button class="small" data-action="editPart" data-id="${esc(part.id)}">Editar</button>${part.done ? `<button class="small" data-action="reviewPart" data-id="${esc(part.id)}">Revisar agora</button><button class="small" data-action="reopenPart" data-id="${esc(part.id)}">Reabrir parte</button>` : `<button class="small primary" data-action="complete" data-id="${esc(part.id)}">Concluir e refletir</button>`}<button class="small danger" data-action="deletePart" data-id="${esc(part.id)}">Excluir</button></div></article>`).join("") : '<div class="empty">Comece com uma aula, capítulo ou pequeno tópico.</div>'}</section><section class="panel"><h2>Minha evolução</h2><p class="muted">Registros reais de estudo. Concluir uma parte e registrar minutos são ações diferentes.</p>${
-          sessions
-            .slice(0, 50)
-            .map(
-              (s) =>
-                `<article class="session"><div class="row"><b>${fmt(s.date)} · ${s.minutes} min</b><button class="small danger" data-action="deleteSession" data-id="${esc(s.id)}">Excluir registro</button></div>${s.part ? `<p class="muted">${esc(state.parts.find((p) => p.id === s.part)?.title || "Parte removida")}</p>` : ""}<p><b>Aprendi:</b> ${esc(s.learned)}</p><p><b>Continuar por:</b> ${esc(s.nextStep)}</p></article>`,
-            )
-            .join("") ||
-          '<div class="empty">Registre uma sessão para guardar o que aprendeu e de onde continuar.</div>'
-        }${sessions.length > 50 ? '<p class="muted">Mostrando os 50 registros mais recentes. O backup e o relatório incluem todos.</p>' : ""}</section><button class="danger" data-action="deleteCourse" data-id="${esc(c.id)}">Excluir este estudo e seus registros</button>`;
+          total = sessions.reduce((n, s) => n + s.minutes, 0),
+          id = esc(c.id);
+        main.innerHTML = `
+          <button class="headerback" data-page="studies">← Meus estudos</button>
+          <section class="hero">
+            <div>
+              <span class="badge ${c.box}">${BOXES[c.box]}</span>
+              <h1>${esc(c.title)}</h1>
+              <p class="muted">${esc(c.goal)}</p>
+              ${c.project ? `<p>Projeto de referência: ${esc(c.project)}</p>` : ""}
+            </div>
+            <div class="heroactions">
+              <button class="primary" data-action="session" data-id="${id}">Registrar sessão</button>
+              <button data-action="editCourse" data-id="${id}">Editar estudo e horários</button>
+            </div>
+          </section>
+          <div class="stats">
+            ${stat(p.percent + "%", `${p.done} de ${p.total} partes concluídas`)}
+            ${stat(total, "minutos estudados no total")}
+            ${stat(sessions.length, "sessões registradas")}
+            <div class="stat"><b style="font-size:18px">${fmt(c.deadline)}</b><span>${STATUS[c.status]}</span></div>
+          </div>
+          <section class="panel">
+            <div class="linkrow"><b>◷ ${esc(scheduleLabel(c))}</b>${link(c.url)}</div>
+            ${c.nextStep ? `<p class="callout"><b>Retome por aqui:</b>\n${esc(c.nextStep)}</p>` : ""}
+          </section>
+          <section class="panel">
+            <div class="panelhead">
+              <h2>Partes do meu estudo</h2>
+              <button class="primary" data-action="newPart" data-id="${id}">+ Adicionar parte</button>
+            </div>
+            <p class="muted">Para cada parte: o que estudar, como conferir se entendeu e o que fazer com esse aprendizado.</p>
+            ${parts.map(partCard).join("") || '<div class="empty">Comece com uma aula, capítulo ou pequeno tópico.</div>'}
+          </section>
+          <section class="panel">
+            <h2>Minha evolução</h2>
+            <p class="muted">Registros reais de estudo. Concluir uma parte e registrar minutos são ações diferentes.</p>
+            ${sessions.slice(0, 50).map(sessionEntry).join("") || '<div class="empty">Registre uma sessão para guardar o que aprendeu e de onde continuar.</div>'}
+            ${sessions.length > 50 ? '<p class="muted">Mostrando os 50 registros mais recentes. O backup e o relatório incluem todos.</p>' : ""}
+          </section>
+          <button class="danger" data-action="deleteCourse" data-id="${id}">Excluir este estudo e seus registros</button>`;
       }
       function renderReview(main) {
         const due = dueReviews(),
           all = state.parts.filter((p) => p.done);
-        main.innerHTML = `<section class="hero"><div><div class="eyebrow">Lembrar e transformar em uso</div><h1>O que vou fazer com o que aprendi?</h1><p class="muted">Tente explicar com suas palavras antes de voltar ao material. Depois, ajuste a aplicação que você pretende fazer.</p></div><button data-action="print">Imprimir meu plano</button></section><section class="panel"><h2>Revisões para hoje ou com data passada · ${due.length}</h2>${due.map((p) => reviewCard(p)).join("") || '<div class="empty">Nenhuma revisão pendente. Ao concluir uma parte, você pode escolher uma data para revisá-la.</div>'}</section><section class="panel"><h2>Todos os aprendizados concluídos · ${all.length}</h2>${
-          all
-            .filter((p) => !due.includes(p))
-            .map(reviewCard)
-            .join("") || '<p class="muted">Seus outros aprendizados aparecerão aqui.</p>'
-        }</section>`;
-      }
-      function reviewCard(p) {
-        const c = state.courses.find((c) => c.id === p.course);
-        return `<article class="card"><span class="badge ${c.box}">${BOXES[c.box]} · ${STATUS[c.status]}</span><h3 style="margin-top:10px">${esc(p.title)}</h3><p class="muted">${esc(c.title)}${p.reviewDate ? " · revisar em " + fmt(p.reviewDate) : ""}</p><p class="purpose"><b>Aplicação:</b> ${esc(p.application)}</p><div class="actions"><button class="small primary" data-action="reviewPart" data-id="${esc(p.id)}">Revisar e responder</button><button class="small" data-action="open" data-id="${esc(c.id)}">Ver estudo</button></div></article>`;
+        main.innerHTML = `
+          ${hero(
+            "Lembrar e transformar em uso",
+            "O que vou fazer com o que aprendi?",
+            "Tente explicar com suas palavras antes de voltar ao material. Depois, ajuste a aplicação que você pretende fazer.",
+            '<button data-action="print">Imprimir meu plano</button>',
+          )}
+          <section class="panel">
+            <h2>Revisões para hoje ou com data passada · ${due.length}</h2>
+            ${due.map(reviewCard).join("") || '<div class="empty">Nenhuma revisão pendente. Ao concluir uma parte, você pode escolher uma data para revisá-la.</div>'}
+          </section>
+          <section class="panel">
+            <h2>Todos os aprendizados concluídos · ${all.length}</h2>
+            ${
+              all
+                .filter((p) => !due.includes(p))
+                .map(reviewCard)
+                .join("") || '<p class="muted">Seus outros aprendizados aparecerão aqui.</p>'
+            }
+          </section>`;
       }
       function renderBackup(main) {
-        main.innerHTML = `<section class="hero"><div><div class="eyebrow">Seu registro, no seu ritmo</div><h1>Backup e primeiros passos</h1></div></section><div class="info"><section class="panel"><h2>Como usar</h2><p>1. Cadastre um estudo na caixa correspondente.<br>2. Escolha dias, horários e um prazo, se fizer sentido.<br>3. Divida o conteúdo em partes pequenas e responda para que vai usar cada uma.<br>4. Ao estudar, registre os minutos, o aprendizado e onde vai continuar.<br>5. Conclua a parte quando estiver pronta e escolha uma data de revisão.</p><p class="note">Exemplos: higiene ocupacional na sustentação; JavaScript para a entrega de um app na temporada; eletrônica por curiosidade na areia. Vários estudos podem apoiar o mesmo projeto de temporada.</p><button class="primary" data-action="newCourse">Cadastrar meu primeiro estudo</button></section><section class="panel"><h2>Seus dados</h2><p>${cloudReady ? "Seus estudos ficam salvos neste aparelho e na sua conta. Ao entrar com a mesma conta no celular ou em outro computador, eles aparecem lá. Sem internet, o app continua funcionando e envia as mudanças quando a conexão voltar. Os lembretes e a escolha de modo claro ou escuro valem só para este aparelho." : "Fechar a página normalmente mantém seus dados neste navegador e perfil. Não há sincronização automática entre dispositivos. Limpar os dados do site ou usar janela anônima pode apagar os registros."}</p>${cloudReady ? '<p><button data-action="account">Ver minha conta e a sincronização</button></p>' : ""}<div class="actions"><button class="primary" data-action="export">Exportar backup (.json)</button><button data-action="import">Importar backup deste app</button><button data-action="downloadReport">Baixar plano e evolução (.html)</button><button data-action="print">Imprimir / salvar PDF</button><button data-action="downloadApp">Baixar app HTML</button></div><p class="muted">Importar o backup deste app substitui os dados atuais após confirmação. O relatório é para leitura; para restaurar registros, use o JSON.</p></section><section class="panel"><h2>Trazer meus interesses do Três Caixas</h2><p>No app Três Caixas, exporte seu backup JSON. Aqui, você pode transformá-lo em estudos iniciais nas mesmas caixas. Depois, ajuste conteúdos, partes, prazos e horários.</p><button data-action="importBoxes">Importar interesses do Três Caixas</button><p class="muted">Acrescenta sustentação, temporada e areia; não importa a lista de espera ou a prateleira. Estudos com o mesmo nome e caixa não são duplicados. Este app continua independente do Três Caixas.</p></section><section class="panel"><h2>Lembretes e agenda</h2><p>Ative os lembretes em “Minha agenda” e permita notificações, se o navegador oferecer essa opção. Com o app aberto, ele avisa durante o horário reservado e destaca prazos e revisões do dia. A suspensão da aba ou o fechamento do navegador pode impedir o aviso; use o alarme do celular para garantir um lembrete fora do app.</p><p>A agenda repete os horários por dia da semana a partir da data inicial, até o prazo do estudo, quando definido. Estudos pausados ou encerrados não aparecem na agenda. Horários sobrepostos são destacados para você ajustar.</p></section></div>`;
+        const data = cloudReady
+          ? "Seus estudos ficam salvos neste aparelho e na sua conta. Ao entrar com a mesma conta no celular ou em outro computador, eles aparecem lá. Sem internet, o app continua funcionando e envia as mudanças quando a conexão voltar. Os lembretes e a escolha de modo claro ou escuro valem só para este aparelho."
+          : "Fechar a página normalmente mantém seus dados neste navegador e perfil. Não há sincronização automática entre dispositivos. Limpar os dados do site ou usar janela anônima pode apagar os registros.";
+        const account = cloudReady
+          ? `<section class="panel">
+              <h2>Minha conta</h2>
+              <p>Você está na conta <b>${esc(user?.email || cloud.email)}</b>.</p>
+              <div class="actions">
+                <button data-action="account">Ver a sincronização</button>
+                <button class="danger" data-action="signOut">Sair da conta</button>
+              </div>
+            </section>`
+          : "";
+        main.innerHTML = `
+          ${hero("Seu registro, no seu ritmo", "Backup e primeiros passos")}
+          <div class="info">
+            ${account}
+            <section class="panel">
+              <h2>Como usar</h2>
+              <p>
+                1. Cadastre um estudo na caixa correspondente.<br>
+                2. Escolha dias, horários e um prazo, se fizer sentido.<br>
+                3. Divida o conteúdo em partes pequenas e responda para que vai usar cada uma.<br>
+                4. Ao estudar, registre os minutos, o aprendizado e onde vai continuar.<br>
+                5. Conclua a parte quando estiver pronta e escolha uma data de revisão.
+              </p>
+              <p class="note">Exemplos: higiene ocupacional na sustentação; JavaScript para a entrega de um app na temporada; eletrônica por curiosidade na areia. Vários estudos podem apoiar o mesmo projeto de temporada.</p>
+              <button class="primary" data-action="newCourse">Cadastrar meu primeiro estudo</button>
+            </section>
+            <section class="panel">
+              <h2>Seus dados</h2>
+              <p>${data}</p>
+              <div class="actions">
+                <button class="primary" data-action="export">Exportar backup (.json)</button>
+                <button data-action="import">Importar backup deste app</button>
+                <button data-action="downloadReport">Baixar plano e evolução (.html)</button>
+                <button data-action="print">Imprimir / salvar PDF</button>
+                <button data-action="downloadApp">Baixar app HTML</button>
+              </div>
+              <p class="muted">Importar o backup deste app substitui os dados atuais após confirmação. O relatório é para leitura; para restaurar registros, use o JSON.</p>
+            </section>
+            <section class="panel">
+              <h2>Trazer meus interesses do Três Caixas</h2>
+              <p>No app Três Caixas, exporte seu backup JSON. Aqui, você pode transformá-lo em estudos iniciais nas mesmas caixas. Depois, ajuste conteúdos, partes, prazos e horários.</p>
+              <button data-action="importBoxes">Importar interesses do Três Caixas</button>
+              <p class="muted">Acrescenta sustentação, temporada e areia; não importa a lista de espera ou a prateleira. Estudos com o mesmo nome e caixa não são duplicados. Este app continua independente do Três Caixas.</p>
+            </section>
+            <section class="panel">
+              <h2>Lembretes e agenda</h2>
+              <p>Ative os lembretes em “Minha agenda” e permita notificações, se o navegador oferecer essa opção. Com o app aberto, ele avisa durante o horário reservado e destaca prazos e revisões do dia. A suspensão da aba ou o fechamento do navegador pode impedir o aviso; use o alarme do celular para garantir um lembrete fora do app.</p>
+              <p>A agenda repete os horários por dia da semana a partir da data inicial, até o prazo do estudo, quando definido. Estudos pausados ou encerrados não aparecem na agenda. Horários sobrepostos são destacados para você ajustar.</p>
+            </section>
+          </div>`;
       }
-      const courseForm = document.getElementById("courseForm");
-      document.getElementById("weekdayFields").innerHTML = [1, 2, 3, 4, 5, 6, 0]
+
+      // ---------- Formulários ----------
+      const courseForm = $("courseForm");
+      $("weekdayFields").innerHTML = [1, 2, 3, 4, 5, 6, 0]
         .map((d) => `<label><input type="checkbox" name="days" value="${d}">${DAYS[d]}</label>`)
         .join("");
       function openCourse(id = null, box = "sustain") {
         courseEdit = id;
         courseForm.reset();
-        const c = state.courses.find((c) => c.id === id);
-        document.getElementById("courseHeading").textContent = c ? "Editar estudo" : "Novo estudo";
+        const c = findCourse(id);
+        $("courseHeading").textContent = c ? "Editar estudo" : "Novo estudo";
         if (c) {
           for (const k of [
             "title",
@@ -2132,8 +2535,8 @@
           courseForm.elements.box.value = box;
           courseForm.elements.scheduleStart.value = today();
         }
-        document.getElementById("courseError").textContent = "";
-        document.getElementById("courseDialog").showModal();
+        $("courseError").textContent = "";
+        $("courseDialog").showModal();
       }
       courseForm.addEventListener("submit", (e) => {
         e.preventDefault();
@@ -2142,7 +2545,7 @@
         data.days = fd.getAll("days").map(Number);
         data.title = data.title.trim();
         data.goal = data.goal.trim();
-        const error = document.getElementById("courseError");
+        const error = $("courseError");
         if (!data.title || !data.goal) {
           error.textContent = "Informe o estudo e o propósito.";
           return;
@@ -2166,33 +2569,31 @@
           error.textContent = "Use um link começando com https:// ou http://.";
           return;
         }
-        const c = state.courses.find((c) => c.id === courseEdit);
+        const c = findCourse(courseEdit);
         if (c) Object.assign(c, data);
         else state.courses.push({ ...data, id: uid(), created: Date.now() });
         save();
-        document.getElementById("courseDialog").close();
+        $("courseDialog").close();
         render();
         notify("Estudo e horários salvos.");
       });
-      const partForm = document.getElementById("partForm");
+      const partForm = $("partForm");
       function openPart(course, id = null) {
         partCourse = course;
         partEdit = id;
         partForm.reset();
-        const p = state.parts.find((p) => p.id === id);
+        const p = findPart(id);
         if (p)
           for (const k of ["title", "deadline", "estimate", "application", "evidence", "url"])
             partForm.elements[k].value = p[k] ?? "";
-        document.getElementById("partHeading").textContent = p
-          ? "Editar parte"
-          : "Nova parte do estudo";
-        document.getElementById("partError").textContent = "";
-        document.getElementById("partDialog").showModal();
+        $("partHeading").textContent = p ? "Editar parte" : "Nova parte do estudo";
+        $("partError").textContent = "";
+        $("partDialog").showModal();
       }
       partForm.addEventListener("submit", (e) => {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(partForm)),
-          error = document.getElementById("partError");
+          error = $("partError");
         data.title = data.title.trim();
         data.application = data.application.trim();
         data.estimate = data.estimate ? Number(data.estimate) : null;
@@ -2212,7 +2613,7 @@
           error.textContent = "Informe um link http:// ou https://.";
           return;
         }
-        const p = state.parts.find((p) => p.id === partEdit);
+        const p = findPart(partEdit);
         if (p) Object.assign(p, data);
         else
           state.parts.push({
@@ -2226,17 +2627,17 @@
             created: Date.now(),
           });
         save();
-        document.getElementById("partDialog").close();
+        $("partDialog").close();
         render();
         notify("Parte salva com seu propósito.");
       });
-      const sessionForm = document.getElementById("sessionForm");
+      const sessionForm = $("sessionForm");
       function openSession(id, date = today()) {
         sessionCourse = id;
-        const c = state.courses.find((c) => c.id === id);
+        const c = findCourse(id);
         sessionForm.reset();
-        document.getElementById("sessionCourse").textContent = c.title;
-        document.getElementById("sessionPart").innerHTML =
+        $("sessionCourse").textContent = c.title;
+        $("sessionPart").innerHTML =
           '<option value="">Estudo geral / revisão</option>' +
           courseParts(id)
             .map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`)
@@ -2245,13 +2646,13 @@
         if (p) sessionForm.elements.part.value = p.id;
         sessionForm.elements.date.value = date;
         sessionForm.elements.date.max = today();
-        document.getElementById("sessionError").textContent = "";
-        document.getElementById("sessionDialog").showModal();
+        $("sessionError").textContent = "";
+        $("sessionDialog").showModal();
       }
       sessionForm.addEventListener("submit", (e) => {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(sessionForm)),
-          error = document.getElementById("sessionError");
+          error = $("sessionError");
         data.minutes = Number(data.minutes);
         if (!Number.isFinite(dayNum(data.date)) || data.date > today()) {
           error.textContent =
@@ -2269,32 +2670,32 @@
           return;
         }
         state.sessions.push({ ...data, id: uid(), course: sessionCourse, created: Date.now() });
-        state.courses.find((c) => c.id === sessionCourse).nextStep = data.nextStep;
+        findCourse(sessionCourse).nextStep = data.nextStep;
         save();
-        document.getElementById("sessionDialog").close();
+        $("sessionDialog").close();
         render();
         notify("Evolução registrada. Seu próximo ponto de retomada está salvo.");
       });
-      const completionForm = document.getElementById("completionForm");
+      const completionForm = $("completionForm");
       function openCompletion(id, mode = "done") {
         completePart = id;
         completionMode = mode;
         completionForm.reset();
-        const p = state.parts.find((p) => p.id === id);
-        document.getElementById("completionPart").textContent = p.title;
-        document.getElementById("completionHeading").textContent =
+        const p = findPart(id);
+        $("completionPart").textContent = p.title;
+        $("completionHeading").textContent =
           mode === "review" ? "Revisar este aprendizado" : "Concluir esta parte";
-        document.getElementById("completionSubmit").textContent =
+        $("completionSubmit").textContent =
           mode === "review" ? "Salvar revisão e próxima data" : "Concluir e guardar aprendizado";
         completionForm.elements.application.value = p.application;
         completionForm.elements.reviewDate.value = addDays(today(), 7);
-        document.getElementById("completionError").textContent = "";
-        document.getElementById("completionDialog").showModal();
+        $("completionError").textContent = "";
+        $("completionDialog").showModal();
       }
       completionForm.addEventListener("submit", (e) => {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(completionForm)),
-          error = document.getElementById("completionError");
+          error = $("completionError");
         if (
           !data.learned.trim() ||
           !data.application.trim() ||
@@ -2303,7 +2704,7 @@
           error.textContent = "Escreva seu entendimento, a aplicação e confira a data de revisão.";
           return;
         }
-        const p = state.parts.find((p) => p.id === completePart);
+        const p = findPart(completePart);
         p.learned = data.learned;
         p.application = data.application;
         p.reviewDate = data.reviewDate;
@@ -2312,7 +2713,7 @@
           p.completed = today();
         } else p.lastReviewed = today();
         save();
-        document.getElementById("completionDialog").close();
+        $("completionDialog").close();
         render();
         notify(
           completionMode === "review"
@@ -2320,115 +2721,134 @@
             : "Parte concluída. Aprendizado e aplicação salvos.",
         );
       });
-      document.addEventListener("click", async (e) => {
-        const b = e.target.closest("button");
-        if (!b) return;
-        const id = b.dataset.id,
-          a = b.dataset.action;
-        if (b.dataset.close) {
-          document.getElementById(b.dataset.close).close();
-          return;
-        }
-        if (b.dataset.page) {
-          page = b.dataset.page;
-          render();
-          window.scrollTo({ top: 0, behavior: "smooth" });
-          return;
-        }
-        if (a === "theme") {
+
+      // ---------- Botões ----------
+      function go(to) {
+        page = to;
+        render();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      // Um botão com data-action="nome" chama a função de mesmo nome desta lista.
+      const ACTIONS = {
+        theme() {
           const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
           try {
             localStorage.setItem(THEME_KEY, t);
           } catch (e) {}
           applyTheme(t);
-        }
-        if (a === "account") {
+        },
+        account() {
           renderChrome();
-          document.getElementById("accountDialog").showModal();
-        }
-        if (a === "syncNow") retry();
-        if (a === "signOut") signOut();
-        if (a === "authMode") {
+          $("accountDialog").showModal();
+        },
+        syncNow() {
+          retry();
+        },
+        signOut() {
+          signOut();
+        },
+        authMode(b) {
           authMode = b.dataset.mode;
-          renderLogin(document.getElementById("main"));
-        }
-        if (a === "newCourse") openCourse(null, b.dataset.box || "sustain");
-        if (a === "editCourse") openCourse(id);
-        if (a === "open") {
-          selected = id;
-          page = "detail";
-          render();
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
-        if (a === "newPart") openPart(id);
-        if (a === "editPart") {
-          const p = state.parts.find((p) => p.id === id);
-          openPart(p.course, id);
-        }
-        if (a === "session") openSession(id, b.dataset.date || today());
-        if (a === "complete") openCompletion(id);
-        if (a === "reviewPart") openCompletion(id, "review");
-        if (
-          a === "reopenPart" &&
-          confirm(
-            "Reabrir esta parte? O aprendizado fica salvo, mas ela volta a contar como pendente.",
+          renderLogin($("main"));
+        },
+        newCourse(b) {
+          openCourse(null, b.dataset.box || "sustain");
+        },
+        editCourse(b) {
+          openCourse(b.dataset.id);
+        },
+        open(b) {
+          selected = b.dataset.id;
+          go("detail");
+        },
+        newPart(b) {
+          openPart(b.dataset.id);
+        },
+        editPart(b) {
+          openPart(findPart(b.dataset.id).course, b.dataset.id);
+        },
+        session(b) {
+          openSession(b.dataset.id, b.dataset.date || today());
+        },
+        complete(b) {
+          openCompletion(b.dataset.id);
+        },
+        reviewPart(b) {
+          openCompletion(b.dataset.id, "review");
+        },
+        reopenPart(b) {
+          if (
+            !confirm(
+              "Reabrir esta parte? O aprendizado fica salvo, mas ela volta a contar como pendente.",
+            )
           )
-        ) {
-          const p = state.parts.find((p) => p.id === id);
+            return;
+          const p = findPart(b.dataset.id);
           p.done = false;
           p.completed = "";
           p.reviewDate = "";
           save();
           render();
-        }
-        if (
-          a === "deletePart" &&
-          confirm("Excluir esta parte? Os registros de sessão permanecem, sem referência a ela.")
-        ) {
+        },
+        deletePart(b) {
+          const id = b.dataset.id;
+          if (
+            !confirm("Excluir esta parte? Os registros de sessão permanecem, sem referência a ela.")
+          )
+            return;
           state.parts = state.parts.filter((p) => p.id !== id);
           state.sessions.forEach((s) => {
             if (s.part === id) s.part = "";
           });
           save();
           render();
-        }
-        if (a === "deleteSession" && confirm("Excluir este registro de evolução?")) {
-          state.sessions = state.sessions.filter((s) => s.id !== id);
+        },
+        deleteSession(b) {
+          if (!confirm("Excluir este registro de evolução?")) return;
+          state.sessions = state.sessions.filter((s) => s.id !== b.dataset.id);
           save();
           render();
-        }
-        if (
-          a === "deleteCourse" &&
-          confirm(
-            "Excluir o estudo, todas as suas partes e sessões? Esta ação não pode ser desfeita.",
+        },
+        deleteCourse(b) {
+          const id = b.dataset.id;
+          if (
+            !confirm(
+              "Excluir o estudo, todas as suas partes e sessões? Esta ação não pode ser desfeita.",
+            )
           )
-        ) {
+            return;
           state.courses = state.courses.filter((c) => c.id !== id);
           state.parts = state.parts.filter((p) => p.course !== id);
           state.sessions = state.sessions.filter((s) => s.course !== id);
           save();
           page = "studies";
           render();
-        }
-        if (a === "export")
+        },
+        export() {
           download(
             "EstudoEmCaixas_backup_" + today() + ".json",
             JSON.stringify(state, null, 2),
             "application/json",
           );
-        if (a === "import") document.getElementById("backupInput").click();
-        if (a === "importBoxes") document.getElementById("boxesInput").click();
-        if (a === "print") {
-          document.getElementById("printout").innerHTML = reportBody();
+        },
+        import() {
+          $("backupInput").click();
+        },
+        importBoxes() {
+          $("boxesInput").click();
+        },
+        print() {
+          $("printout").innerHTML = reportBody();
           window.print();
-        }
-        if (a === "downloadReport")
+        },
+        downloadReport() {
           download(
             "EstudoEmCaixas_plano_" + today() + ".html",
             reportHTML(),
             "text/html;charset=utf-8",
           );
-        if (a === "downloadApp") {
+        },
+        async downloadApp() {
           try {
             const res = await fetch(location.href),
               html = await res.text();
@@ -2437,28 +2857,37 @@
           } catch (err) {
             notify("Para baixar o HTML, use este botão no endereço online do app.");
           }
-        }
-        if (a === "reminders") {
+        },
+        async reminders() {
           if (state.reminders) {
             state.reminders = false;
             save();
             render();
             notify("Lembretes desativados.");
-          } else {
-            state.reminders = true;
-            save();
-            render();
-            try {
-              if ("Notification" in globalThis && Notification.permission === "default")
-                await Notification.requestPermission();
-            } catch (e) {}
-            notify(
-              "Lembretes no app ativados. Mantenha esta página aberta; configure também um alarme no celular.",
-            );
-            checkReminders();
+            return;
           }
-        }
+          state.reminders = true;
+          save();
+          render();
+          try {
+            if ("Notification" in globalThis && Notification.permission === "default")
+              await Notification.requestPermission();
+          } catch (e) {}
+          notify(
+            "Lembretes no app ativados. Mantenha esta página aberta; configure também um alarme no celular.",
+          );
+          checkReminders();
+        },
+      };
+      document.addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        if (b.dataset.close) $(b.dataset.close).close();
+        else if (b.dataset.page) go(b.dataset.page);
+        else if (Object.hasOwn(ACTIONS, b.dataset.action)) ACTIONS[b.dataset.action](b);
       });
+
+      // ---------- Backup e importação ----------
       function download(name, content, type) {
         const a = document.createElement("a"),
           url = URL.createObjectURL(new Blob([content], { type }));
@@ -2467,7 +2896,7 @@
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
-      document.getElementById("backupInput").addEventListener("change", async (e) => {
+      $("backupInput").addEventListener("change", async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         try {
@@ -2531,7 +2960,7 @@
         }
         return incoming;
       }
-      document.getElementById("boxesInput").addEventListener("change", async (e) => {
+      $("boxesInput").addEventListener("change", async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         try {
@@ -2556,13 +2985,15 @@
         }
         e.target.value = "";
       });
+
+      // ---------- Lembretes ----------
       function reminderMessages(now = new Date()) {
         const date = today(now),
           minutes = now.getHours() * 60 + now.getMinutes(),
           messages = [];
         for (const r of agenda(date, 1)) {
           if (minutes >= timeNum(r.start) && minutes < timeNum(r.end) && !r.logged) {
-            const c = state.courses.find((c) => c.id === r.course),
+            const c = findCourse(r.course),
               p = nextPart(c.id);
             messages.push({
               key: date + ":slot:" + c.id,
@@ -2630,48 +3061,65 @@
           save();
         }
       }
-      function reportBody() {
-        return `<h1>Meu plano de estudos e evolução</h1><p>Estudo em Caixas · ${fmt(today())} · cópia dos registros atuais.</p><p><b>${weeklyMinutes()} minutos registrados nos últimos 7 dias.</b> O progresso conta partes concluídas, não mede domínio do conteúdo.</p><h2>Agenda dos próximos 7 dias</h2>${
-          agenda().length
-            ? "<ul>" +
-              agenda()
+
+      // ---------- Relatório para imprimir ----------
+      function reportPart(part) {
+        return `
+          <div class="card">
+            <h4>${esc(part.title)} · ${partStatus(part)}</h4>
+            <p><b>Prazo:</b> ${fmt(part.deadline)}${part.estimate ? " · estimativa " + part.estimate + " min" : ""}</p>
+            <p><b>O que vou fazer:</b> ${esc(part.application)}</p>
+            ${part.evidence ? `<p><b>Como conferir:</b> ${esc(part.evidence)}</p>` : ""}
+            ${part.learned ? `<p><b>O que entendi:</b> ${esc(part.learned)}</p>` : ""}
+            ${part.reviewDate ? `<p><b>Revisar em:</b> ${fmt(part.reviewDate)}</p>` : ""}
+            ${link(part.url)}
+          </div>`;
+      }
+      function reportCourse(c) {
+        const p = progress(c.id);
+        return `
+          <article class="card">
+            <h3>${esc(c.title)} · ${STATUS[c.status]}</h3>
+            <p><b>Propósito:</b> ${esc(c.goal)}</p>
+            <p><b>Horários:</b> ${esc(scheduleLabel(c))}<br><b>Prazo:</b> ${fmt(c.deadline)}<br><b>Progresso:</b> ${p.done}/${p.total} partes · ${p.percent}%</p>
+            ${c.nextStep ? `<p><b>Retomar por:</b> ${esc(c.nextStep)}</p>` : ""}
+            ${link(c.url)}
+            <h4>Partes e aplicações</h4>
+            ${courseParts(c.id).map(reportPart).join("") || "<p>Partes ainda não definidas.</p>"}
+            <h4>Histórico de evolução</h4>
+            ${
+              courseSessions(c.id)
                 .map(
-                  (r) =>
-                    `<li>${fmt(r.date)} · ${r.start}–${r.end} · ${esc(r.title)} (${BOXES[r.box]})</li>`,
+                  (s) =>
+                    `<p>${fmt(s.date)} · ${s.minutes} min<br><b>Aprendi:</b> ${esc(s.learned)}<br><b>Continuar por:</b> ${esc(s.nextStep)}</p>`,
                 )
-                .join("") +
-              "</ul>"
-            : "<p>Nenhum horário definido.</p>"
-        }${Object.entries(BOXES)
-          .map(
-            ([box, label]) =>
-              `<section><h2>${label}</h2>${
+                .join("") || "<p>Nenhuma sessão registrada.</p>"
+            }
+          </article>`;
+      }
+      function reportBody() {
+        const rows = agenda(),
+          box = ([key, label]) => `
+            <section>
+              <h2>${label}</h2>
+              ${
                 state.courses
-                  .filter((c) => c.box === box)
-                  .map((c) => {
-                    const p = progress(c.id);
-                    return `<article class="card"><h3>${esc(c.title)} · ${STATUS[c.status]}</h3><p><b>Propósito:</b> ${esc(c.goal)}</p><p><b>Horários:</b> ${esc(scheduleLabel(c))}<br><b>Prazo:</b> ${fmt(c.deadline)}<br><b>Progresso:</b> ${p.done}/${p.total} partes · ${p.percent}%</p>${c.nextStep ? `<p><b>Retomar por:</b> ${esc(c.nextStep)}</p>` : ""}${link(c.url)}<h4>Partes e aplicações</h4>${
-                      courseParts(c.id)
-                        .map(
-                          (part) =>
-                            `<div class="card"><h4>${esc(part.title)} · ${partStatus(part)}</h4><p><b>Prazo:</b> ${fmt(part.deadline)}${part.estimate ? " · estimativa " + part.estimate + " min" : ""}</p><p><b>O que vou fazer:</b> ${esc(part.application)}</p>${part.evidence ? `<p><b>Como conferir:</b> ${esc(part.evidence)}</p>` : ""}${part.learned ? `<p><b>O que entendi:</b> ${esc(part.learned)}</p>` : ""}${part.reviewDate ? `<p><b>Revisar em:</b> ${fmt(part.reviewDate)}</p>` : ""}${link(part.url)}</div>`,
-                        )
-                        .join("") || "<p>Partes ainda não definidas.</p>"
-                    }<h4>Histórico de evolução</h4>${
-                      courseSessions(c.id)
-                        .map(
-                          (s) =>
-                            `<p>${fmt(s.date)} · ${s.minutes} min<br><b>Aprendi:</b> ${esc(s.learned)}<br><b>Continuar por:</b> ${esc(s.nextStep)}</p>`,
-                        )
-                        .join("") || "<p>Nenhuma sessão registrada.</p>"
-                    }</article>`;
-                  })
+                  .filter((c) => c.box === key)
+                  .map(reportCourse)
                   .join("") || "<p>Nenhum estudo nesta caixa.</p>"
-              }</section>`,
-          )
-          .join(
-            "",
-          )}<h2>Minha próxima ação</h2><p>Reserve um horário viável, escolha uma parte pendente e pratique a aplicação que você escreveu. Ao terminar, registre o aprendizado e o ponto de retomada. Na areia, explore sem obrigação de entrega.</p><p>Este relatório não restaura os dados. Para isso, use o backup JSON.</p><p>Criado por Michelle Carneiro.</p>`;
+              }
+            </section>`;
+        return `
+          <h1>Meu plano de estudos e evolução</h1>
+          <p>Estudo em Caixas · ${fmt(today())} · cópia dos registros atuais.</p>
+          <p><b>${weeklyMinutes()} minutos registrados nos últimos 7 dias.</b> O progresso conta partes concluídas, não mede domínio do conteúdo.</p>
+          <h2>Agenda dos próximos 7 dias</h2>
+          ${rows.length ? `<ul>${rows.map((r) => `<li>${fmt(r.date)} · ${r.start}–${r.end} · ${esc(r.title)} (${BOXES[r.box]})</li>`).join("")}</ul>` : "<p>Nenhum horário definido.</p>"}
+          ${Object.entries(BOXES).map(box).join("")}
+          <h2>Minha próxima ação</h2>
+          <p>Reserve um horário viável, escolha uma parte pendente e pratique a aplicação que você escreveu. Ao terminar, registre o aprendizado e o ponto de retomada. Na areia, explore sem obrigação de entrega.</p>
+          <p>Este relatório não restaura os dados. Para isso, use o backup JSON.</p>
+          <p>Frontend por Michelle Carneiro. Backend por Noemi.</p>`;
       }
       function reportHTML() {
         return (
@@ -2680,12 +3128,24 @@
           "</body></html>"
         );
       }
+
+      // ---------- Início ----------
       applyTheme(document.documentElement.dataset.theme);
       darkQuery.addEventListener("change", (e) => {
         if (!savedTheme()) applyTheme(e.matches ? "dark" : "light");
       });
       render();
       loadCloud();
+      // Em endereço publicado (https), o sw.js guarda uma cópia do app no aparelho: ele passa a
+      // abrir sem internet e pode ser instalado como aplicativo. Abrindo o arquivo direto do
+      // computador não há o que guardar, e o navegador nem permite.
+      if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+        if (cloudReady)
+          navigator.serviceWorker.ready.then((r) =>
+            r.active.postMessage({ biblioteca: SUPABASE_JS }),
+          );
+      }
       setInterval(checkReminders, 30000);
       setInterval(() => {
         if (!document.hidden && !document.querySelector("dialog[open]")) render();

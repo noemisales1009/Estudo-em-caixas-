@@ -1,4 +1,4 @@
-ESTUDO EM CAIXAS — Criado por Michelle Carneiro
+ESTUDO EM CAIXAS — Frontend por Michelle Carneiro · Backend por Noemi
 
 COMO ABRIR
 Abra index.html no navegador, no computador ou no celular, ou acesse o
@@ -8,11 +8,18 @@ Na primeira vez, crie sua conta com e-mail e senha. Depois, é só entrar.
 SEUS DADOS
 Os estudos ficam guardados na sua conta (nuvem) e também no aparelho.
 Entrando com a mesma conta no celular e no computador, eles aparecem nos dois.
-Sem internet, um aparelho que já entrou antes continua funcionando e envia
-as mudanças quando a conexão voltar.
 Ao sair da conta, os estudos saem do aparelho e continuam guardados na conta.
 O backup JSON, em Backup e ajuda, continua disponível. É por ele que se trazem
 os registros da versão antiga do app: exporte lá e use Importar backup aqui.
+
+SEM INTERNET
+Um aparelho que já entrou na conta continua funcionando sem internet: o que
+você fizer fica guardado nele e é enviado sozinho quando a conexão voltar
+(na hora ou, depois de muito tempo fora, em até 1 minuto).
+No endereço publicado, o app também abre sem internet depois da primeira
+visita, e pode ser instalado: no celular, menu do navegador > "Adicionar à
+tela inicial" ou "Instalar aplicativo".
+O primeiro acesso, criar conta, entrar e trocar a senha precisam de internet.
 
 MODO CLARO E ESCURO
 O botão de lua/sol no topo troca o tema. Sem escolha, o app segue o tema do
@@ -28,3 +35,6 @@ supabase/schema.sql cria a tabela e as regras de acesso no Supabase.
 O endereço e a chave pública do projeto ficam no começo do script, em
 index.html; o endereço aparece também na linha Content-Security-Policy.
 Nunca coloque no app a chave secreta (service_role) do Supabase.
+Para o app abrir sem internet, publique junto com o index.html, na mesma
+pasta: sw.js, manifest.webmanifest e a pasta icones. O endereço precisa ser
+https.
