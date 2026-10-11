@@ -1,0 +1,28 @@
+ESTUDO EM CAIXAS — Criado por Michelle Carneiro
+
+COMPUTADOR
+1. Extraia o ZIP em uma pasta.
+2. Abra EstudoEmCaixas.html no navegador.
+
+CELULAR ANDROID
+1. Extraia o ZIP pelo gerenciador de arquivos.
+2. Abra EstudoEmCaixas.html em um navegador ou pelo Acode.
+O suporte a arquivos HTML locais depende do navegador. Se não funcionar,
+use a versão online:
+https://estudo-em-caixas-michelle.engmichellecarneiro.chatgpt.site
+
+SEUS DADOS
+O pacote contém o app, sem seus dados pessoais cadastrados.
+Os dados da versão online não são transferidos automaticamente.
+Para transferir: na versão online, exporte o backup JSON em Backup e ajuda.
+Depois, abra o HTML e use Importar backup deste app.
+Mantenha o arquivo HTML no mesmo local e use o mesmo navegador.
+O armazenamento de arquivos locais varia entre navegadores; faça backups
+frequentes. O backup JSON é o arquivo usado para recuperar seus registros.
+
+FUNCIONAMENTO
+O app funciona sem internet; links de materiais precisam de conexão.
+Lembretes exigem o app aberto e suporte/permissão do navegador.
+Com o navegador fechado ou suspenso, use também o alarme do celular.
+O botão Baixar app HTML foi feito para uso na versão online; neste pacote,
+o próprio arquivo EstudoEmCaixas.html já é o app completo.
