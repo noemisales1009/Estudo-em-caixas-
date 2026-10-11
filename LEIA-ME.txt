@@ -1,28 +1,30 @@
 ESTUDO EM CAIXAS — Criado por Michelle Carneiro
 
-COMPUTADOR
-1. Extraia o ZIP em uma pasta.
-2. Abra EstudoEmCaixas.html no navegador.
-
-CELULAR ANDROID
-1. Extraia o ZIP pelo gerenciador de arquivos.
-2. Abra EstudoEmCaixas.html em um navegador ou pelo Acode.
-O suporte a arquivos HTML locais depende do navegador. Se não funcionar,
-use a versão online:
-https://estudo-em-caixas-michelle.engmichellecarneiro.chatgpt.site
+COMO ABRIR
+Abra index.html no navegador, no computador ou no celular, ou acesse o
+endereço onde o app estiver publicado.
+Na primeira vez, crie sua conta com e-mail e senha. Depois, é só entrar.
 
 SEUS DADOS
-O pacote contém o app, sem seus dados pessoais cadastrados.
-Os dados da versão online não são transferidos automaticamente.
-Para transferir: na versão online, exporte o backup JSON em Backup e ajuda.
-Depois, abra o HTML e use Importar backup deste app.
-Mantenha o arquivo HTML no mesmo local e use o mesmo navegador.
-O armazenamento de arquivos locais varia entre navegadores; faça backups
-frequentes. O backup JSON é o arquivo usado para recuperar seus registros.
+Os estudos ficam guardados na sua conta (nuvem) e também no aparelho.
+Entrando com a mesma conta no celular e no computador, eles aparecem nos dois.
+Sem internet, um aparelho que já entrou antes continua funcionando e envia
+as mudanças quando a conexão voltar.
+Ao sair da conta, os estudos saem do aparelho e continuam guardados na conta.
+O backup JSON, em Backup e ajuda, continua disponível. É por ele que se trazem
+os registros da versão antiga do app: exporte lá e use Importar backup aqui.
+
+MODO CLARO E ESCURO
+O botão de lua/sol no topo troca o tema. Sem escolha, o app segue o tema do
+aparelho. A escolha vale só para o aparelho em que foi feita.
 
 FUNCIONAMENTO
-O app funciona sem internet; links de materiais precisam de conexão.
+Links de materiais precisam de conexão.
 Lembretes exigem o app aberto e suporte/permissão do navegador.
 Com o navegador fechado ou suspenso, use também o alarme do celular.
-O botão Baixar app HTML foi feito para uso na versão online; neste pacote,
-o próprio arquivo EstudoEmCaixas.html já é o app completo.
+
+PARA QUEM MANTÉM O APP
+supabase/schema.sql cria a tabela e as regras de acesso no Supabase.
+O endereço e a chave pública do projeto ficam no começo do script, em
+index.html; o endereço aparece também na linha Content-Security-Policy.
+Nunca coloque no app a chave secreta (service_role) do Supabase.

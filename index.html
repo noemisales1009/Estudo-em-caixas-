@@ -2,22 +2,109 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <!-- Trava do navegador: a página só carrega código dela mesma e da biblioteca do Supabase,
+         e só conversa com o projeto do Supabase. Ao trocar de projeto, troque o endereço aqui também. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/@supabase/; style-src 'unsafe-inline'; img-src data:; connect-src 'self' https://cbijxuiqmiodzfthuuqn.supabase.co; base-uri 'none'; form-action 'none'"
+    />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"
+    />
     <meta name="theme-color" content="#356857" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Estudo em Caixas" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23356857'/%3E%3Cpath d='M18 22h28M18 32h28M18 42h28' stroke='%23fff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
     <title>Estudo em Caixas — horário, progresso e propósito</title>
+    <script>
+      // Escolhe o tema antes de desenhar a página, para ela não piscar clara no modo escuro.
+      try {
+        var t = localStorage.getItem("estudo-em-caixas-tema");
+        document.documentElement.dataset.theme =
+          t === "dark" || t === "light"
+            ? t
+            : matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+      } catch (e) {
+        document.documentElement.dataset.theme = "light";
+      }
+    </script>
     <style>
       :root {
+        color-scheme: light;
         --bg: #f5f5f0;
+        --surface: #fff;
+        --button: #fff;
+        --input: #fff;
         --ink: #293631;
         --soft: #68736e;
         --green: #356857;
+        --primary: #356857;
+        --on-primary: #fff;
         --line: #dde3dc;
+        --field: #c7d1c9;
         --lav: #ede8fa;
         --mint: #e2eee5;
         --peach: #faead9;
+        --chip: #eef1ec;
+        --track: #e5eae4;
+        --note: #edf2ed;
+        --thread: #c9dccc;
+        --dash: #b9c6ba;
+        --danger: #a63c35;
+        --error: #a6382f;
+        --overdue: #9f302a;
+        --overdue-bg: #fae7e4;
+        --warn: #fff0d4;
+        --toast: #293631;
+        --on-toast: #fff;
+        --shadow: 0 20px 90px #243a3533;
+        --backdrop: #1c302c66;
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #121715;
+        --surface: #1b221f;
+        --button: #242d29;
+        --input: #151b18;
+        --ink: #e4ebe6;
+        --soft: #9eaca5;
+        --green: #86cbad;
+        --primary: #3f7d68;
+        --on-primary: #fff;
+        --line: #2f3a35;
+        --field: #45534c;
+        --lav: #2b2843;
+        --mint: #1f352c;
+        --peach: #3b2e20;
+        --chip: #29332e;
+        --track: #2c3732;
+        --note: #1e2a25;
+        --thread: #3b4c43;
+        --dash: #45534c;
+        --danger: #f1968d;
+        --error: #f3a199;
+        --overdue: #ffb3aa;
+        --overdue-bg: #4a2420;
+        --warn: #4a3a14;
+        --toast: #e4ebe6;
+        --on-toast: #17201c;
+        --shadow: 0 20px 90px #00000080;
+        --backdrop: #000000a6;
       }
       * {
         box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
       }
       body {
         margin: 0;
@@ -28,6 +115,7 @@
           -apple-system,
           Segoe UI,
           sans-serif;
+        -webkit-tap-highlight-color: transparent;
       }
       button,
       input,
@@ -41,29 +129,33 @@
         border-radius: 10px;
         padding: 10px 15px;
         color: var(--ink);
-        background: white;
+        background: var(--button);
       }
-      button:hover {
-        border-color: var(--green);
+      button:active {
+        transform: scale(0.98);
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: default;
       }
       button.primary {
-        background: var(--green);
-        border-color: var(--green);
-        color: #fff;
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--on-primary);
       }
       button.small {
         padding: 5px 10px;
         font-size: 12px;
       }
       button.danger {
-        color: #a63c35;
+        color: var(--danger);
       }
       input,
       select,
       textarea {
         width: 100%;
-        border: 1px solid #c7d1c9;
-        background: white;
+        border: 1px solid var(--field);
+        background: var(--input);
         border-radius: 9px;
         padding: 10px 12px;
         color: var(--ink);
@@ -73,7 +165,7 @@
       }
       input[type="checkbox"] {
         width: auto;
-        accent-color: var(--green);
+        accent-color: var(--primary);
       }
       button,
       input,
@@ -104,7 +196,7 @@
         color: var(--green);
       }
       header {
-        background: white;
+        background: var(--surface);
         border-bottom: 1px solid var(--line);
       }
       .top {
@@ -113,7 +205,6 @@
         padding: 18px 24px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
         gap: 20px;
       }
       .brand {
@@ -122,15 +213,27 @@
         display: flex;
         align-items: center;
         gap: 10px;
+        margin-right: auto;
       }
       .mark {
-        background: var(--green);
-        color: white;
+        background: var(--primary);
+        color: var(--on-primary);
         border-radius: 12px;
         width: 40px;
         height: 40px;
         display: grid;
         place-items: center;
+        flex: none;
+      }
+      .icon {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex: none;
       }
       .top nav {
         display: flex;
@@ -145,6 +248,54 @@
       .top nav button[aria-current="page"] {
         background: var(--mint);
         font-weight: 700;
+      }
+      .top nav .icon,
+      .short {
+        display: none;
+      }
+      .tools {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tools button {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 9px 10px;
+        font-size: 13px;
+      }
+      #themeButton .sun,
+      :root[data-theme="dark"] #themeButton .moon {
+        display: none;
+      }
+      :root[data-theme="dark"] #themeButton .sun {
+        display: block;
+      }
+      #accountButton::after {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--soft);
+      }
+      #accountButton[data-state="out"]::after {
+        display: none;
+      }
+      #accountButton[data-state="ok"]::after {
+        background: var(--green);
+      }
+      #accountButton[data-state="offline"]::after,
+      #accountButton[data-state="error"]::after {
+        background: var(--danger);
+      }
+      #accountButton[data-state="syncing"]::after {
+        animation: pulse 1s ease-in-out infinite alternate;
+      }
+      @keyframes pulse {
+        to {
+          opacity: 0.25;
+        }
       }
       main {
         max-width: 1180px;
@@ -183,7 +334,7 @@
         margin: 20px 0;
       }
       .stat {
-        background: white;
+        background: var(--surface);
         border: 1px solid var(--line);
         padding: 17px;
         border-radius: 15px;
@@ -219,7 +370,7 @@
         min-height: 42px;
       }
       .card {
-        background: #fff;
+        background: var(--surface);
         border: 1px solid var(--line);
         border-radius: 15px;
         padding: 18px;
@@ -235,7 +386,7 @@
         font-size: 11px;
         padding: 3px 8px;
         border-radius: 20px;
-        background: #eef1ec;
+        background: var(--chip);
         white-space: nowrap;
       }
       .badge.sustain {
@@ -248,12 +399,12 @@
         background: var(--peach);
       }
       .badge.overdue {
-        color: #9f302a;
-        background: #fae7e4;
+        color: var(--overdue);
+        background: var(--overdue-bg);
       }
       .progress {
         height: 7px;
-        background: #e5eae4;
+        background: var(--track);
         border-radius: 8px;
         margin: 12px 0;
         overflow: hidden;
@@ -275,14 +426,14 @@
       .empty {
         padding: 22px 16px;
         text-align: center;
-        border: 1px dashed #b9c6ba;
+        border: 1px dashed var(--dash);
         border-radius: 12px;
         color: var(--soft);
         font-size: 14px;
         margin: 12px 0;
       }
       .panel {
-        background: white;
+        background: var(--surface);
         border: 1px solid var(--line);
         border-radius: 19px;
         padding: 23px;
@@ -302,11 +453,14 @@
         margin-top: 22px;
       }
       .note {
-        background: #edf2ed;
+        background: var(--note);
         border-left: 3px solid var(--green);
         padding: 12px 16px;
         border-radius: 0 10px 10px 0;
         font-size: 13px;
+      }
+      .note button {
+        margin-left: 6px;
       }
       .callout {
         background: var(--lav);
@@ -391,7 +545,7 @@
         margin-right: 5px;
       }
       .error {
-        color: #a6382f;
+        color: var(--error);
         font-size: 13px;
         min-height: 20px;
       }
@@ -401,10 +555,12 @@
         padding: 25px;
         width: min(600px, calc(100% - 28px));
         max-height: 90vh;
-        box-shadow: 0 20px 90px #243a3533;
+        background: var(--surface);
+        color: var(--ink);
+        box-shadow: var(--shadow);
       }
       dialog::backdrop {
-        background: #1c302c66;
+        background: var(--backdrop);
       }
       .dialoghead {
         display: flex;
@@ -414,6 +570,7 @@
       }
       .dialoghead button {
         border: 0;
+        background: transparent;
         font-size: 22px;
         padding: 1px 9px;
       }
@@ -426,8 +583,18 @@
       .info {
         max-width: 850px;
       }
+      .login {
+        max-width: 440px;
+        margin: 5vh auto 0;
+      }
+      .login h1 {
+        font-size: 32px;
+      }
+      .locked .top nav {
+        display: none;
+      }
       .session {
-        border-left: 3px solid #c9dccc;
+        border-left: 3px solid var(--thread);
         padding: 5px 14px;
         margin: 14px 0;
       }
@@ -447,15 +614,15 @@
         bottom: 22px;
         left: 50%;
         transform: translateX(-50%);
-        background: var(--ink);
-        color: white;
+        background: var(--toast);
+        color: var(--on-toast);
         padding: 12px 20px;
         border-radius: 12px;
         max-width: 90%;
         z-index: 20;
       }
       #warning {
-        background: #fff0d4;
+        background: var(--warn);
         padding: 12px;
         text-align: center;
       }
@@ -472,6 +639,35 @@
         overflow: hidden;
         clip: rect(0, 0, 0, 0);
       }
+      @media (hover: hover) {
+        button:hover {
+          border-color: var(--green);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #accountButton::after {
+          animation: none !important;
+        }
+        button:active {
+          transform: none;
+        }
+      }
+      @media (pointer: coarse) {
+        button {
+          min-height: 44px;
+        }
+        button.small {
+          min-height: 38px;
+          padding: 8px 12px;
+          font-size: 13px;
+        }
+        .dialoghead button {
+          min-width: 44px;
+        }
+        .days label {
+          padding: 10px 12px;
+        }
+      }
       @media (max-width: 950px) {
         .grid {
           grid-template-columns: 1fr;
@@ -483,8 +679,70 @@
           grid-template-columns: 1fr;
         }
         .top {
+          flex-wrap: wrap;
+          row-gap: 10px;
+        }
+        .top nav {
+          order: 3;
+          width: 100%;
+        }
+      }
+      @media (max-width: 700px) {
+        body {
+          padding-bottom: calc(70px + env(safe-area-inset-bottom));
+        }
+        body.locked {
+          padding-bottom: 0;
+        }
+        .top nav {
+          position: fixed;
+          z-index: 15;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          width: auto;
+          flex-wrap: nowrap;
+          gap: 2px;
+          background: var(--surface);
+          border-top: 1px solid var(--line);
+          padding: 6px max(6px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom))
+            max(6px, env(safe-area-inset-left));
+        }
+        .top nav button {
+          flex: 1;
+          min-width: 0;
+          display: flex;
           flex-direction: column;
-          align-items: flex-start;
+          align-items: center;
+          gap: 2px;
+          padding: 7px 2px;
+          font-size: 11px;
+          border-radius: 12px;
+          color: var(--soft);
+        }
+        .top nav button[aria-current="page"] {
+          color: var(--green);
+        }
+        .top nav .icon {
+          display: block;
+          width: 22px;
+          height: 22px;
+        }
+        .full {
+          display: none;
+        }
+        .short {
+          display: inline;
+        }
+        input,
+        select,
+        textarea {
+          font-size: 16px;
+        }
+        #toast {
+          bottom: calc(84px + env(safe-area-inset-bottom));
+          width: max-content;
+          max-width: calc(100% - 28px);
         }
       }
       @media (max-width: 560px) {
@@ -492,20 +750,44 @@
           padding: 24px 15px;
         }
         .top {
-          padding: 16px;
+          padding: 12px 15px;
+        }
+        .brand {
+          font-size: 18px;
+        }
+        .mark {
+          width: 36px;
+          height: 36px;
+        }
+        h1 {
+          font-size: 28px;
+          letter-spacing: -0.8px;
+        }
+        h2 {
+          font-size: 20px;
         }
         .hero {
           flex-direction: column;
           align-items: flex-start;
+          gap: 14px;
         }
-        .heroactions {
+        .heroactions,
+        .hero > button {
           width: 100%;
         }
         .stats {
           grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        .stat {
+          padding: 14px;
+        }
+        .stat b {
+          font-size: 24px;
         }
         .split {
           grid-template-columns: 1fr;
+          gap: 0;
         }
         .slot {
           flex-direction: column;
@@ -518,11 +800,32 @@
         .column {
           padding: 18px;
         }
+        .panelhead {
+          flex-wrap: wrap;
+        }
         .row {
           align-items: flex-start;
         }
-        .top nav button {
-          padding: 8px 10px;
+        .actions > button {
+          flex: 1 1 auto;
+        }
+        dialog {
+          width: 100%;
+          max-width: 100%;
+          max-height: 92vh;
+          max-height: 92dvh;
+          margin: auto 0 0;
+          border-radius: 20px 20px 0 0;
+          padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+        }
+      }
+      @media (max-width: 400px) {
+        #accountLabel {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
         }
       }
       @page {
@@ -530,6 +833,11 @@
         margin: 16mm;
       }
       @media print {
+        html,
+        body {
+          background: #fff !important;
+          padding: 0 !important;
+        }
         body > * {
           display: none !important;
         }
@@ -547,8 +855,13 @@
           font-size: 18pt;
         }
         #printout .card {
+          background: #fff;
+          border-color: #dce3dc;
           border-radius: 0;
           break-inside: avoid;
+        }
+        #printout a {
+          color: #356857;
         }
         #printout p {
           white-space: pre-wrap;
@@ -565,11 +878,61 @@
       <div class="top">
         <div class="brand"><span class="mark" aria-hidden="true">▤</span> Estudo em Caixas</div>
         <nav aria-label="Navegação">
-          <button data-page="home" aria-current="page">Painel</button
-          ><button data-page="agenda">Minha agenda</button
-          ><button data-page="studies">Estudos</button><button data-page="review">Revisão</button
-          ><button data-page="backup">Backup e ajuda</button>
+          <button data-page="home" aria-current="page">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
+            </svg>
+            <span>Painel</span>
+          </button>
+          <button data-page="agenda">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="16" rx="2" />
+              <path d="M3 10h18M8 3v4M16 3v4" />
+            </svg>
+            <span class="full">Minha agenda</span><span class="short">Agenda</span>
+          </button>
+          <button data-page="studies">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="3" width="8" height="8" rx="1.5" />
+              <rect x="13" y="3" width="8" height="8" rx="1.5" />
+              <rect x="3" y="13" width="18" height="8" rx="1.5" />
+            </svg>
+            <span>Estudos</span>
+          </button>
+          <button data-page="review">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <path d="M3 4v5h5" />
+            </svg>
+            <span>Revisão</span>
+          </button>
+          <button data-page="backup">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01" />
+            </svg>
+            <span class="full">Backup e ajuda</span><span class="short">Ajuda</span>
+          </button>
         </nav>
+        <div class="tools">
+          <button id="accountButton" data-action="account" data-state="out" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 10.5a3.75 3.75 0 0 1-.5 7.5z" />
+            </svg>
+            <span id="accountLabel"></span>
+          </button>
+          <button id="themeButton" data-action="theme" aria-label="Usar modo escuro">
+            <svg class="icon moon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" />
+            </svg>
+            <svg class="icon sun" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
     </header>
     <div id="warning" hidden>
@@ -577,8 +940,10 @@
     </div>
     <main id="main"></main>
     <footer>
-      Criado por Michelle Carneiro · Aprender, lembrar e aplicar.<br />Salvo neste navegador.
-      Lembretes funcionam com o app aberto; não há sincronização automática.
+      Criado por Michelle Carneiro · Aprender, lembrar e aplicar.<br /><span id="footerNote"
+        >Salvo neste navegador. Lembretes funcionam com o app aberto; não há sincronização
+        automática.</span
+      >
     </footer>
     <div id="toast" role="status" hidden></div>
     <section id="printout"></section>
@@ -782,6 +1147,18 @@
         <button class="primary wide" id="completionSubmit">Concluir e guardar aprendizado</button>
       </form>
     </dialog>
+    <dialog id="accountDialog">
+      <div class="dialoghead">
+        <h2>Minha conta</h2>
+        <button type="button" data-close="accountDialog" aria-label="Fechar">×</button>
+      </div>
+      <p>Você está na conta <b id="accountEmail"></b>.</p>
+      <p class="note" id="accountStatus"></p>
+      <div class="actions">
+        <button class="primary" data-action="syncNow">Sincronizar agora</button
+        ><button class="danger" data-action="signOut">Sair da conta</button>
+      </div>
+    </dialog>
     <input id="backupInput" type="file" accept=".json,application/json" hidden /><input
       id="boxesInput"
       type="file"
@@ -790,6 +1167,20 @@
     />
     <script>
       "use strict";
+      // Nuvem (Supabase). A chave abaixo é a pública: quem protege os dados são as regras do banco
+      // (supabase/schema.sql). Com os dois valores vazios, o app volta a funcionar só neste navegador.
+      const SUPABASE_URL = "https://cbijxuiqmiodzfthuuqn.supabase.co";
+      const SUPABASE_KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNiaWp4dWlxbWlvZHpmdGh1dXFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3NDkyODgsImV4cCI6MjEwNzMyNTI4OH0.bd5NP4M3CBNHj8m2uDAb9QqRymCAwu9EzdsxdZxBc68";
+      const SUPABASE_JS =
+        "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js";
+      const SUPABASE_SRI =
+        "sha384-BWcjm9OdFth9TbhCxZPdm+gAOUMAzQy9nmTs12ioXdCcbVnJaPMn+fMUoQCLt60R";
+      const TABLE = "eec_itens";
+      const COLS = ["courses", "parts", "sessions"];
+      const TIPO = { courses: "estudo", parts: "parte", sessions: "sessao" };
+      const CLOUD_KEY = "estudo-em-caixas-nuvem";
+      const THEME_KEY = "estudo-em-caixas-tema";
       const KEY = "estudo-em-caixas-v1";
       const BOXES = { sustain: "Sustentação", season: "Temporada", sand: "Areia" };
       const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -815,6 +1206,17 @@
         completePart = null,
         completionMode = "done",
         toastTimer;
+      // cloud fica gravado no aparelho: de qual conta são os dados daqui e o que já está na nuvem.
+      let cloud = { owner: null, email: "", base: null },
+        sb = null,
+        user = null,
+        authKnown = false,
+        authMode = "in",
+        syncState = "out",
+        syncedAt = 0,
+        syncing = false,
+        syncAgain = false,
+        syncTimer;
       function esc(v) {
         return String(v ?? "").replace(
           /[&<>"']/g,
@@ -893,9 +1295,63 @@
       function overdue(s, done = false, now = today()) {
         return !!s && !done && dayNum(s) < dayNum(now);
       }
+      const str = (v, max = 3000) => typeof v === "string" && v.length <= max;
+      const optionalDate = (v) => v === "" || Number.isFinite(dayNum(v));
+      function badCourse(c) {
+        return (
+          !c ||
+          !str(c.id, 100) ||
+          !str(c.title, 120) ||
+          !c.title.trim() ||
+          !Object.hasOwn(BOXES, c.box) ||
+          !Object.hasOwn(STATUS, c.status) ||
+          !str(c.goal, 2000) ||
+          !str(c.project, 200) ||
+          !str(c.url, 2000) ||
+          !str(c.nextStep, 2000) ||
+          !optionalDate(c.deadline) ||
+          !Number.isFinite(dayNum(c.scheduleStart)) ||
+          !Array.isArray(c.days) ||
+          c.days.some((n) => !Number.isInteger(n) || n < 0 || n > 6) ||
+          new Set(c.days).size !== c.days.length ||
+          !str(c.startTime, 5) ||
+          !str(c.endTime, 5) ||
+          (c.days.length && !(timeNum(c.endTime) > timeNum(c.startTime)))
+        );
+      }
+      function badPart(p) {
+        return (
+          !p ||
+          !str(p.id, 100) ||
+          !str(p.title, 160) ||
+          !str(p.application) ||
+          !str(p.evidence, 2000) ||
+          !str(p.url, 2000) ||
+          !str(p.learned) ||
+          !optionalDate(p.deadline) ||
+          !optionalDate(p.reviewDate) ||
+          !optionalDate(p.completed) ||
+          typeof p.done !== "boolean" ||
+          !(
+            p.estimate === null ||
+            (Number.isInteger(p.estimate) && p.estimate >= 1 && p.estimate <= 1440)
+          )
+        );
+      }
+      function badSession(s) {
+        return (
+          !s ||
+          !str(s.id, 100) ||
+          !Number.isFinite(dayNum(s.date)) ||
+          !Number.isInteger(s.minutes) ||
+          s.minutes < 1 ||
+          s.minutes > 1440 ||
+          !str(s.learned) ||
+          !str(s.nextStep, 2000) ||
+          !Number.isFinite(s.created)
+        );
+      }
       function validate(d) {
-        const str = (v, max = 3000) => typeof v === "string" && v.length <= max;
-        const optionalDate = (v) => v === "" || Number.isFinite(dayNum(v));
         if (
           !d ||
           d.app !== "estudo-em-caixas" ||
@@ -912,67 +1368,20 @@
           parts = new Map(),
           sessionIds = new Set();
         for (const c of d.courses) {
-          if (
-            !c ||
-            !str(c.id, 100) ||
-            ids.has(c.id) ||
-            !str(c.title, 120) ||
-            !c.title.trim() ||
-            !Object.hasOwn(BOXES, c.box) ||
-            !Object.hasOwn(STATUS, c.status) ||
-            !str(c.goal, 2000) ||
-            !str(c.project, 200) ||
-            !str(c.url, 2000) ||
-            !str(c.nextStep, 2000) ||
-            !optionalDate(c.deadline) ||
-            !Number.isFinite(dayNum(c.scheduleStart)) ||
-            !Array.isArray(c.days) ||
-            c.days.some((n) => !Number.isInteger(n) || n < 0 || n > 6) ||
-            new Set(c.days).size !== c.days.length ||
-            !str(c.startTime, 5) ||
-            !str(c.endTime, 5) ||
-            (c.days.length && !(timeNum(c.endTime) > timeNum(c.startTime)))
-          )
-            throw Error("Estudo inválido.");
+          if (badCourse(c) || ids.has(c.id)) throw Error("Estudo inválido.");
           ids.add(c.id);
         }
         for (const p of d.parts) {
-          if (
-            !p ||
-            !str(p.id, 100) ||
-            parts.has(p.id) ||
-            !ids.has(p.course) ||
-            !str(p.title, 160) ||
-            !str(p.application) ||
-            !str(p.evidence, 2000) ||
-            !str(p.url, 2000) ||
-            !str(p.learned) ||
-            !optionalDate(p.deadline) ||
-            !optionalDate(p.reviewDate) ||
-            !optionalDate(p.completed) ||
-            typeof p.done !== "boolean" ||
-            !(
-              p.estimate === null ||
-              (Number.isInteger(p.estimate) && p.estimate >= 1 && p.estimate <= 1440)
-            )
-          )
+          if (badPart(p) || parts.has(p.id) || !ids.has(p.course))
             throw Error("Parte de estudo inválida.");
           parts.set(p.id, p.course);
         }
         for (const s of d.sessions) {
           if (
-            !s ||
-            !str(s.id, 100) ||
+            badSession(s) ||
             sessionIds.has(s.id) ||
             !ids.has(s.course) ||
-            (s.part && parts.get(s.part) !== s.course) ||
-            !Number.isFinite(dayNum(s.date)) ||
-            !Number.isInteger(s.minutes) ||
-            s.minutes < 1 ||
-            s.minutes > 1440 ||
-            !str(s.learned) ||
-            !str(s.nextStep, 2000) ||
-            !Number.isFinite(s.created)
+            (s.part && parts.get(s.part) !== s.course)
           )
             throw Error("Sessão inválida.");
           sessionIds.add(s.id);
@@ -986,13 +1395,47 @@
           throw Error("Configuração inválida.");
         return d;
       }
-      try {
+      // A data de criação mantém estudos e partes na mesma ordem em todos os aparelhos.
+      function stamp(d) {
+        for (const k of ["courses", "parts"])
+          d[k] = d[k].map((x, i) => (Number.isFinite(x.created) ? x : { ...x, created: i + 1 }));
+        return d;
+      }
+      function readState() {
         const raw = localStorage.getItem(KEY);
-        if (raw) state = validate(JSON.parse(raw));
+        return raw ? stamp(validate(JSON.parse(raw))) : null;
+      }
+      function readCloud() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(CLOUD_KEY)),
+            b = saved?.base;
+          if (typeof saved?.owner === "string")
+            return {
+              owner: saved.owner,
+              email: String(saved.email || ""),
+              base:
+                b &&
+                COLS.every(
+                  (k) => Array.isArray(b[k]) && b[k].every((x) => x && typeof x.id === "string"),
+                )
+                  ? b
+                  : null,
+            };
+        } catch (e) {}
+        return { owner: null, email: "", base: null };
+      }
+      // Tudo o que está na base e falta nos estudos é entendido como "apagado aqui" e sai da nuvem.
+      // Por isso a base só vale junto com os estudos gravados: sem eles, começa do zero e só baixa.
+      cloud = readCloud();
+      try {
+        const saved = readState();
+        if (saved) state = saved;
+        else cloud.base = null;
       } catch (e) {
+        cloud.base = null;
         document.getElementById("warning").hidden = false;
       }
-      function save() {
+      function store() {
         try {
           localStorage.setItem(KEY, JSON.stringify(state));
           return true;
@@ -1001,6 +1444,463 @@
           notify("Não foi possível salvar. Exporte um backup antes de fechar.");
           return false;
         }
+      }
+      function save() {
+        const ok = store();
+        if (user && unsent()) {
+          syncState = "syncing";
+          renderChrome();
+          queueSync();
+        }
+        return ok;
+      }
+      function saveCloud() {
+        try {
+          localStorage.setItem(CLOUD_KEY, JSON.stringify(cloud));
+        } catch (e) {}
+      }
+
+      // ---- Nuvem: cada estudo, parte e sessão é uma linha na tabela, e cada aparelho guarda em
+      // cloud.base a última versão que viu na nuvem. Sincronizar é: baixar tudo, reaplicar por cima
+      // o que mudou aqui desde a base, e enviar só a diferença. Assim nada se perde quando dois
+      // aparelhos mexem em coisas diferentes, nem quando um deles ficou sem internet.
+      const cloudReady = !!(SUPABASE_URL && SUPABASE_KEY);
+      const emptyDoc = () => ({ courses: [], parts: [], sessions: [] });
+      const canon = (x) => JSON.stringify(x, Object.keys(x).sort());
+      const copy = (d) =>
+        JSON.parse(JSON.stringify({ courses: d.courses, parts: d.parts, sessions: d.sessions }));
+      function changes(from, to) {
+        const out = {};
+        for (const k of COLS) {
+          const old = new Map(from[k].map((x) => [x.id, canon(x)])),
+            seen = new Set(),
+            put = [];
+          for (const x of to[k]) {
+            seen.add(x.id);
+            if (old.get(x.id) !== canon(x)) put.push(x);
+          }
+          out[k] = { put, del: [...old.keys()].filter((id) => !seen.has(id)) };
+        }
+        return out;
+      }
+      function pending(ch) {
+        return COLS.some((k) => ch[k].put.length || ch[k].del.length);
+      }
+      function apply(doc, ch) {
+        const out = {};
+        for (const k of COLS) {
+          const rows = new Map(doc[k].map((x) => [x.id, x]));
+          for (const id of ch[k].del) rows.delete(id);
+          for (const x of ch[k].put) rows.set(x.id, x);
+          out[k] = [...rows.values()];
+        }
+        return out;
+      }
+      // Tira o que ficou sem dono (parte de um estudo excluído em outro aparelho) e ordena.
+      function tidy(doc) {
+        const order = (a, b) =>
+            (a.created || 0) - (b.created || 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+          courses = new Set(doc.courses.map((c) => c.id)),
+          parts = doc.parts.filter((p) => courses.has(p.course)),
+          owner = new Map(parts.map((p) => [p.id, p.course]));
+        return {
+          courses: [...doc.courses].sort(order),
+          parts: parts.sort(order),
+          sessions: doc.sessions
+            .filter((s) => courses.has(s.course))
+            .map((s) => (s.part && owner.get(s.part) !== s.course ? { ...s, part: "" } : s))
+            .sort(order),
+        };
+      }
+      function unsent() {
+        return pending(changes(cloud.base || emptyDoc(), state));
+      }
+      async function pull(uid) {
+        const doc = emptyDoc(),
+          seen = new Set(),
+          kind = Object.fromEntries(COLS.map((k) => [TIPO[k], k])),
+          bad = { courses: badCourse, parts: badPart, sessions: badSession };
+        // O servidor devolve no máximo um tanto de linhas por pedido; segue pedindo até acabar.
+        for (let from = 0; ;) {
+          const { data, error, count } = await sb
+            .from(TABLE)
+            .select("tipo,id,dados", { count: "exact" })
+            .eq("user_id", uid)
+            .order("tipo")
+            .order("id")
+            .range(from, from + 999);
+          if (error) throw error;
+          for (const r of data) {
+            const k = kind[r.tipo],
+              x = r.dados,
+              key = r.tipo + "/" + r.id;
+            if (!k || seen.has(key) || !x || x.id !== r.id || bad[k](x)) continue;
+            seen.add(key);
+            doc[k].push(x);
+          }
+          from += data.length;
+          if (!data.length || from >= count) break;
+        }
+        return doc;
+      }
+      async function push(ch, uid) {
+        for (const k of COLS) {
+          const rows = ch[k].put.map((x) => ({ user_id: uid, tipo: TIPO[k], id: x.id, dados: x }));
+          for (let i = 0; i < rows.length; i += 100) {
+            const { error } = await sb
+              .from(TABLE)
+              .upsert(rows.slice(i, i + 100), { onConflict: "user_id,tipo,id" });
+            if (error) throw error;
+          }
+        }
+        for (const k of [...COLS].reverse()) {
+          const mine = () => sb.from(TABLE).delete().eq("user_id", uid).eq("tipo", TIPO[k]),
+            plain = ch[k].del.filter((id) => /^[\w-]+$/.test(id));
+          for (let i = 0; i < plain.length; i += 100) {
+            const { error } = await mine().in("id", plain.slice(i, i + 100));
+            if (error) throw error;
+          }
+          // Ids fora do padrão (de backups antigos) vão um a um, para não confundir a lista do filtro.
+          for (const id of ch[k].del.filter((id) => !plain.includes(id))) {
+            const { error } = await mine().eq("id", id);
+            if (error) throw error;
+          }
+        }
+      }
+      async function sync() {
+        if (!sb || !user || cloud.owner !== user.id) return;
+        if (syncing) {
+          syncAgain = true;
+          return;
+        }
+        const uid = user.id;
+        syncing = true;
+        setSync("syncing");
+        try {
+          const start = copy(state),
+            remote = tidy(await pull(uid)),
+            merged = tidy(apply(remote, changes(cloud.base || emptyDoc(), start)));
+          validate({ ...fresh(), ...merged });
+          await push(changes(remote, merged), uid);
+          if (user?.id !== uid || cloud.owner !== uid) return;
+          // O que foi editado enquanto a sincronização corria entra por cima e vai na próxima.
+          const late = changes(start, state),
+            next = tidy(apply(merged, late)),
+            changed = pending(changes(state, next));
+          cloud.base = copy(merged);
+          Object.assign(state, next);
+          if (store()) saveCloud();
+          syncedAt = Date.now();
+          syncAgain ||= pending(late);
+          setSync("ok");
+          if (changed) refresh();
+        } catch (e) {
+          const offline = navigator.onLine === false || /fetch|network/i.test(e?.message);
+          if (!offline) console.warn("Sincronização:", e?.code || "", e?.message || e);
+          if (user?.id === uid) setSync(offline ? "offline" : "error");
+        } finally {
+          syncing = false;
+          if (syncAgain) {
+            syncAgain = false;
+            queueSync(300);
+          }
+        }
+      }
+      function setSync(s) {
+        syncState = s;
+        clearTimeout(syncTimer);
+        if (s === "offline" || s === "error") syncTimer = setTimeout(retry, 60000);
+        renderChrome();
+      }
+      function queueSync(delay = 1500) {
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(retry, delay);
+      }
+      function retry() {
+        if (!cloudReady) return;
+        if (!sb) loadCloud();
+        else sync();
+      }
+      function refresh() {
+        // Um formulário aberto pode apontar para algo que acabou de ser excluído em outro aparelho.
+        const gone = (list, id) => id && !state[list].some((x) => x.id === id),
+          stale = {
+            courseDialog: gone("courses", courseEdit),
+            partDialog: gone("courses", partCourse) || gone("parts", partEdit),
+            sessionDialog: gone("courses", sessionCourse),
+            completionDialog: gone("parts", completePart),
+          };
+        for (const [id, lost] of Object.entries(stale)) {
+          const dialog = document.getElementById(id);
+          if (dialog.open && lost) {
+            dialog.close();
+            notify("Este item foi excluído em outro aparelho.");
+          }
+        }
+        render();
+      }
+      function loadCloud() {
+        if (!cloudReady || sb || document.getElementById("supabaseJs")) return;
+        const s = document.createElement("script");
+        s.id = "supabaseJs";
+        s.src = SUPABASE_JS;
+        s.integrity = SUPABASE_SRI;
+        s.crossOrigin = "anonymous";
+        s.onload = () => {
+          sb = globalThis.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+            auth: { storageKey: "estudo-em-caixas-conta" },
+          });
+          // O Supabase pede que nada dele seja chamado de dentro deste aviso; daí o setTimeout.
+          sb.auth.onAuthStateChange((event, session) =>
+            setTimeout(() => onAuth(event, session), 0),
+          );
+        };
+        s.onerror = () => {
+          s.remove();
+          setSync("offline");
+        };
+        document.head.append(s);
+      }
+      function clearLocal() {
+        state = { ...fresh(), reminders: state.reminders, notified: state.notified };
+        store();
+      }
+      function onAuth(event, session) {
+        const u = session?.user || null;
+        authKnown = true;
+        if (event === "PASSWORD_RECOVERY") authMode = "newpass";
+        if (u && cloud.owner && cloud.owner !== u.id && COLS.some((k) => state[k].length)) {
+          const ok = confirm(
+            `Este aparelho guarda os estudos de ${cloud.email || "outra conta"}. Para entrar como ${u.email}, eles saem deste aparelho${unsent() ? ", inclusive alterações que ainda não foram enviadas para a nuvem" : " e continuam guardados naquela conta"}. Continuar?`,
+          );
+          if (!ok) {
+            sb.auth.signOut({ scope: "local" });
+            return;
+          }
+          cloud = { owner: u.id, email: u.email || "", base: null };
+          saveCloud();
+          clearLocal();
+        }
+        if (u && (cloud.owner !== u.id || cloud.email !== u.email)) {
+          cloud = {
+            owner: u.id,
+            email: u.email || "",
+            base: cloud.owner === u.id ? cloud.base : null,
+          };
+          saveCloud();
+        }
+        const entered = u && user?.id !== u.id;
+        user = u;
+        if (!u) {
+          clearTimeout(syncTimer);
+          syncState = "out";
+        }
+        document.getElementById("main").dataset.view = "";
+        render();
+        if (entered) sync();
+      }
+      async function signOut() {
+        if (!sb) {
+          notify("Sem conexão com a nuvem. Tente sair quando a internet voltar.");
+          return;
+        }
+        if (unsent()) await sync();
+        if (
+          !confirm(
+            unsent()
+              ? "Algumas alterações ainda não chegaram à nuvem. Se sair agora, elas se perdem neste aparelho. Sair mesmo assim?"
+              : "Sair da conta? Os estudos saem deste aparelho e continuam guardados na sua conta.",
+          )
+        )
+          return;
+        const { error } = await sb.auth.signOut({ scope: "local" });
+        if (error) {
+          notify("Não foi possível sair agora. Confira a internet e tente de novo.");
+          return;
+        }
+        cloud = { owner: null, email: "", base: null };
+        saveCloud();
+        clearLocal();
+        user = null;
+        authKnown = true;
+        page = "home";
+        document.getElementById("accountDialog").close();
+        render();
+      }
+      function authMessage(e) {
+        const code = e?.code || "",
+          text = String(e?.message || "");
+        if (code === "invalid_credentials" || /invalid login/i.test(text))
+          return "E-mail ou senha incorretos.";
+        if (code === "email_not_confirmed")
+          return "Confirme seu e-mail pelo link que enviamos e depois entre.";
+        if (code === "user_already_exists" || /already registered/i.test(text))
+          return "Este e-mail já tem conta. Use “Já tenho conta” para entrar.";
+        if (code === "weak_password")
+          return "Escolha uma senha mais forte, com pelo menos 6 caracteres.";
+        if (code === "same_password") return "A nova senha precisa ser diferente da atual.";
+        if (code === "signup_disabled") return "A criação de contas está desativada.";
+        if (code === "email_address_not_authorized")
+          return "O envio de e-mails da nuvem ainda não está liberado para este endereço.";
+        if (code === "email_address_invalid" || code === "validation_failed")
+          return "Confira o e-mail informado.";
+        if (/rate_limit/.test(code) || e?.status === 429)
+          return "Muitas tentativas. Aguarde alguns minutos e tente de novo.";
+        if (/fetch|network/i.test(text))
+          return "Sem conexão com a nuvem. Confira a internet e tente de novo.";
+        console.warn("Conta:", code || "erro sem código");
+        return "Não foi possível concluir agora. Tente de novo em instantes.";
+      }
+      // Com a nuvem ligada, o app só abre depois do login. Um aparelho que já entrou antes abre
+      // direto, mesmo sem internet, e sincroniza quando a conexão voltar.
+      function locked() {
+        return cloudReady && (authMode === "newpass" || (!user && (authKnown || !cloud.owner)));
+      }
+      function syncText() {
+        const offline =
+          "Sem conexão com a nuvem. O que você fizer fica salvo neste aparelho e é enviado quando a internet voltar.";
+        if (!user) return syncState === "offline" ? offline : "Conectando à nuvem…";
+        if (syncState === "offline") return offline;
+        if (syncState === "error")
+          return "Não foi possível sincronizar agora. Seus estudos continuam salvos neste aparelho e o app tenta de novo sozinho.";
+        if (syncState === "syncing") return "Sincronizando…";
+        return (
+          "Tudo sincronizado" +
+          (syncedAt
+            ? " às " +
+              new Date(syncedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+            : "") +
+          "."
+        );
+      }
+      function renderChrome() {
+        const lock = locked(),
+          button = document.getElementById("accountButton"),
+          email = user?.email || cloud.email;
+        document.body.classList.toggle("locked", lock);
+        button.hidden = !cloudReady || lock;
+        button.title = "Conta e sincronização";
+        button.dataset.state = user || syncState === "offline" ? syncState : "syncing";
+        document.getElementById("accountLabel").textContent = user
+          ? { syncing: "Sincronizando…", ok: "Sincronizado", error: "Não sincronizou" }[
+              syncState
+            ] || "Sem conexão"
+          : syncState === "offline"
+            ? "Sem conexão"
+            : "Conectando…";
+        document.getElementById("accountEmail").textContent = email;
+        document.getElementById("accountStatus").textContent = syncText();
+        document.getElementById("footerNote").textContent = !cloudReady
+          ? "Salvo neste navegador. Lembretes funcionam com o app aberto; não há sincronização automática."
+          : lock
+            ? "Seus estudos ficam guardados na sua conta. Lembretes funcionam com o app aberto."
+            : `Salvo neste aparelho e sincronizado com a conta ${email}. Lembretes funcionam com o app aberto.`;
+      }
+      const AUTH = {
+        in: {
+          title: "Entrar",
+          button: "Entrar",
+          text: "Seus estudos ficam guardados na sua conta e aparecem no celular e no computador.",
+        },
+        up: {
+          title: "Criar minha conta",
+          button: "Criar conta",
+          text: "Use seu e-mail e escolha uma senha. Os estudos que já estiverem neste aparelho vão junto para a conta.",
+        },
+        forgot: {
+          title: "Esqueci minha senha",
+          button: "Enviar link para nova senha",
+          text: "Informe seu e-mail e enviaremos um link para você criar uma nova senha.",
+        },
+        newpass: {
+          title: "Criar nova senha",
+          button: "Salvar nova senha",
+          text: "Escolha a nova senha da sua conta.",
+        },
+      };
+      function renderLogin(main, info = "") {
+        const m = AUTH[authMode],
+          email = document.querySelector("#authForm [name=email]")?.value ?? cloud.email;
+        main.dataset.view = "login:" + authMode;
+        main.innerHTML = `<section class="login panel"><div class="eyebrow">Aprender com intenção</div><h1>${m.title}</h1><p class="muted">${authMode === "in" && cloud.owner ? "Sua sessão terminou. Entre de novo para continuar; os estudos deste aparelho estão guardados." : m.text}</p><form id="authForm">${authMode === "newpass" ? "" : `<label class="field"><span>E-mail</span><input name="email" type="email" required autocomplete="username" value="${esc(email)}"></label>`}${authMode === "forgot" ? "" : `<label class="field"><span>${authMode === "newpass" ? "Nova senha" : "Senha"}</span><input name="password" type="password" required minlength="6" autocomplete="${authMode === "in" ? "current-password" : "new-password"}">${authMode === "in" ? "" : "<small>Pelo menos 6 caracteres.</small>"}</label>`}${info ? `<p class="note">${esc(info)}</p>` : ""}<p class="error" id="authError" role="alert"></p><button class="primary wide" type="submit">${m.button}</button></form><div class="actions">${authMode === "in" ? '<button data-action="authMode" data-mode="up">Criar conta</button><button data-action="authMode" data-mode="forgot">Esqueci minha senha</button>' : authMode === "newpass" ? "" : '<button data-action="authMode" data-mode="in">Já tenho conta</button>'}</div></section>`;
+      }
+      document.addEventListener("submit", async (e) => {
+        if (e.target.id !== "authForm") return;
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target)),
+          error = document.getElementById("authError"),
+          button = e.target.querySelector("[type=submit]"),
+          main = document.getElementById("main"),
+          email = (data.email || "").trim(),
+          here = /^https?:$/.test(location.protocol)
+            ? location.origin + location.pathname
+            : undefined;
+        if (!sb) {
+          error.textContent = "Sem conexão com a nuvem. Confira a internet e tente de novo.";
+          loadCloud();
+          return;
+        }
+        error.textContent = "";
+        button.disabled = true;
+        try {
+          if (authMode === "in") {
+            const { error: err } = await sb.auth.signInWithPassword({
+              email,
+              password: data.password,
+            });
+            if (err) throw err;
+          } else if (authMode === "up") {
+            const { data: res, error: err } = await sb.auth.signUp({
+              email,
+              password: data.password,
+              options: { emailRedirectTo: here },
+            });
+            if (err) throw err;
+            // A mesma mensagem serve para e-mail novo e para e-mail que já tem conta, de propósito:
+            // assim a tela não revela a um curioso quem está cadastrado.
+            if (!res.session) {
+              authMode = "in";
+              renderLogin(
+                main,
+                `Se ${email} ainda não tinha conta, enviamos um link de confirmação: abra o e-mail, toque no link e depois entre aqui. Se já tinha, é só entrar ou usar “Esqueci minha senha”.`,
+              );
+            }
+          } else if (authMode === "forgot") {
+            const { error: err } = await sb.auth.resetPasswordForEmail(email, { redirectTo: here });
+            if (err) throw err;
+            authMode = "in";
+            renderLogin(
+              main,
+              "Se existir uma conta com este e-mail, enviamos um link para criar uma nova senha.",
+            );
+          } else {
+            const { error: err } = await sb.auth.updateUser({ password: data.password });
+            if (err) throw err;
+            authMode = "in";
+            render();
+            notify("Senha alterada.");
+          }
+        } catch (err) {
+          error.textContent = authMessage(err);
+          button.disabled = false;
+        }
+      });
+      const darkQuery = matchMedia("(prefers-color-scheme: dark)");
+      function savedTheme() {
+        try {
+          const t = localStorage.getItem(THEME_KEY);
+          return t === "dark" || t === "light" ? t : "";
+        } catch (e) {
+          return "";
+        }
+      }
+      function applyTheme(t) {
+        const button = document.getElementById("themeButton");
+        document.documentElement.dataset.theme = t;
+        document.querySelector("meta[name=theme-color]").content =
+          t === "dark" ? "#1b221f" : "#356857";
+        button.title = t === "dark" ? "Usar modo claro" : "Usar modo escuro";
+        button.setAttribute("aria-label", button.title);
       }
       function notify(msg) {
         const el = document.getElementById("toast");
@@ -1078,12 +1978,20 @@
         return `<article class="slot"><div class="time">${row.start}–${row.end}</div><div class="content"><div class="parttitle"><h3>${esc(c.title)}</h3><span class="badge ${c.box}">${BOXES[c.box]}</span>${row.logged ? '<span class="badge">Sessão registrada neste dia</span>' : ""}${overlaps(row, rows) ? '<span class="badge overdue">Horários sobrepostos</span>' : ""}</div><p>${n ? "Parte sugerida: " + esc(n.title) : "Revisar o que foi aprendido ou definir a próxima parte."}</p>${n ? `<p><b>Vou usar para:</b> ${esc(n.application)}</p>` : ""}${c.nextStep ? `<p class="muted">Retome por aqui: ${esc(c.nextStep)}</p>` : ""}<div class="actions"><button class="small" data-action="open" data-id="${esc(c.id)}">Ver estudo</button><button class="small primary" data-action="session" data-id="${esc(c.id)}" data-date="${row.date}">Registrar o que estudei</button></div></div></article>`;
       }
       function render() {
+        const main = document.getElementById("main"),
+          current = page === "detail" ? "studies" : page;
+        renderChrome();
+        if (locked()) {
+          // Só redesenha se a tela mudou, para não apagar o que a pessoa está digitando.
+          if (main.dataset.view !== "login:" + authMode) renderLogin(main);
+          return;
+        }
+        main.dataset.view = page;
         document
           .querySelectorAll("nav button")
           .forEach((b) =>
-            b.setAttribute("aria-current", b.dataset.page === page ? "page" : "false"),
+            b.setAttribute("aria-current", b.dataset.page === current ? "page" : "false"),
           );
-        const main = document.getElementById("main");
         if (page === "detail") renderDetail(main);
         else if (page === "home") renderHome(main);
         else if (page === "studies") renderStudies(main);
@@ -1191,7 +2099,7 @@
         return `<article class="card"><span class="badge ${c.box}">${BOXES[c.box]} · ${STATUS[c.status]}</span><h3 style="margin-top:10px">${esc(p.title)}</h3><p class="muted">${esc(c.title)}${p.reviewDate ? " · revisar em " + fmt(p.reviewDate) : ""}</p><p class="purpose"><b>Aplicação:</b> ${esc(p.application)}</p><div class="actions"><button class="small primary" data-action="reviewPart" data-id="${esc(p.id)}">Revisar e responder</button><button class="small" data-action="open" data-id="${esc(c.id)}">Ver estudo</button></div></article>`;
       }
       function renderBackup(main) {
-        main.innerHTML = `<section class="hero"><div><div class="eyebrow">Seu registro, no seu ritmo</div><h1>Backup e primeiros passos</h1></div></section><div class="info"><section class="panel"><h2>Como usar</h2><p>1. Cadastre um estudo na caixa correspondente.<br>2. Escolha dias, horários e um prazo, se fizer sentido.<br>3. Divida o conteúdo em partes pequenas e responda para que vai usar cada uma.<br>4. Ao estudar, registre os minutos, o aprendizado e onde vai continuar.<br>5. Conclua a parte quando estiver pronta e escolha uma data de revisão.</p><p class="note">Exemplos: higiene ocupacional na sustentação; JavaScript para a entrega de um app na temporada; eletrônica por curiosidade na areia. Vários estudos podem apoiar o mesmo projeto de temporada.</p><button class="primary" data-action="newCourse">Cadastrar meu primeiro estudo</button></section><section class="panel"><h2>Seus dados</h2><p>Fechar a página normalmente mantém seus dados neste navegador e perfil. Não há sincronização automática entre dispositivos. Limpar os dados do site ou usar janela anônima pode apagar os registros.</p><div class="actions"><button class="primary" data-action="export">Exportar backup (.json)</button><button data-action="import">Importar backup deste app</button><button data-action="downloadReport">Baixar plano e evolução (.html)</button><button data-action="print">Imprimir / salvar PDF</button><button data-action="downloadApp">Baixar app HTML</button></div><p class="muted">Importar o backup deste app substitui os dados atuais após confirmação. O relatório é para leitura; para restaurar registros, use o JSON.</p></section><section class="panel"><h2>Trazer meus interesses do Três Caixas</h2><p>No app Três Caixas, exporte seu backup JSON. Aqui, você pode transformá-lo em estudos iniciais nas mesmas caixas. Depois, ajuste conteúdos, partes, prazos e horários.</p><button data-action="importBoxes">Importar interesses do Três Caixas</button><p class="muted">Acrescenta sustentação, temporada e areia; não importa a lista de espera ou a prateleira. Estudos com o mesmo nome e caixa não são duplicados. Este app continua independente do Três Caixas.</p></section><section class="panel"><h2>Lembretes e agenda</h2><p>Ative os lembretes em “Minha agenda” e permita notificações, se o navegador oferecer essa opção. Com o app aberto, ele avisa durante o horário reservado e destaca prazos e revisões do dia. A suspensão da aba ou o fechamento do navegador pode impedir o aviso; use o alarme do celular para garantir um lembrete fora do app.</p><p>A agenda repete os horários por dia da semana a partir da data inicial, até o prazo do estudo, quando definido. Estudos pausados ou encerrados não aparecem na agenda. Horários sobrepostos são destacados para você ajustar.</p></section></div>`;
+        main.innerHTML = `<section class="hero"><div><div class="eyebrow">Seu registro, no seu ritmo</div><h1>Backup e primeiros passos</h1></div></section><div class="info"><section class="panel"><h2>Como usar</h2><p>1. Cadastre um estudo na caixa correspondente.<br>2. Escolha dias, horários e um prazo, se fizer sentido.<br>3. Divida o conteúdo em partes pequenas e responda para que vai usar cada uma.<br>4. Ao estudar, registre os minutos, o aprendizado e onde vai continuar.<br>5. Conclua a parte quando estiver pronta e escolha uma data de revisão.</p><p class="note">Exemplos: higiene ocupacional na sustentação; JavaScript para a entrega de um app na temporada; eletrônica por curiosidade na areia. Vários estudos podem apoiar o mesmo projeto de temporada.</p><button class="primary" data-action="newCourse">Cadastrar meu primeiro estudo</button></section><section class="panel"><h2>Seus dados</h2><p>${cloudReady ? "Seus estudos ficam salvos neste aparelho e na sua conta. Ao entrar com a mesma conta no celular ou em outro computador, eles aparecem lá. Sem internet, o app continua funcionando e envia as mudanças quando a conexão voltar. Os lembretes e a escolha de modo claro ou escuro valem só para este aparelho." : "Fechar a página normalmente mantém seus dados neste navegador e perfil. Não há sincronização automática entre dispositivos. Limpar os dados do site ou usar janela anônima pode apagar os registros."}</p>${cloudReady ? '<p><button data-action="account">Ver minha conta e a sincronização</button></p>' : ""}<div class="actions"><button class="primary" data-action="export">Exportar backup (.json)</button><button data-action="import">Importar backup deste app</button><button data-action="downloadReport">Baixar plano e evolução (.html)</button><button data-action="print">Imprimir / salvar PDF</button><button data-action="downloadApp">Baixar app HTML</button></div><p class="muted">Importar o backup deste app substitui os dados atuais após confirmação. O relatório é para leitura; para restaurar registros, use o JSON.</p></section><section class="panel"><h2>Trazer meus interesses do Três Caixas</h2><p>No app Três Caixas, exporte seu backup JSON. Aqui, você pode transformá-lo em estudos iniciais nas mesmas caixas. Depois, ajuste conteúdos, partes, prazos e horários.</p><button data-action="importBoxes">Importar interesses do Três Caixas</button><p class="muted">Acrescenta sustentação, temporada e areia; não importa a lista de espera ou a prateleira. Estudos com o mesmo nome e caixa não são duplicados. Este app continua independente do Três Caixas.</p></section><section class="panel"><h2>Lembretes e agenda</h2><p>Ative os lembretes em “Minha agenda” e permita notificações, se o navegador oferecer essa opção. Com o app aberto, ele avisa durante o horário reservado e destaca prazos e revisões do dia. A suspensão da aba ou o fechamento do navegador pode impedir o aviso; use o alarme do celular para garantir um lembrete fora do app.</p><p>A agenda repete os horários por dia da semana a partir da data inicial, até o prazo do estudo, quando definido. Estudos pausados ou encerrados não aparecem na agenda. Horários sobrepostos são destacados para você ajustar.</p></section></div>`;
       }
       const courseForm = document.getElementById("courseForm");
       document.getElementById("weekdayFields").innerHTML = [1, 2, 3, 4, 5, 6, 0]
@@ -1260,7 +2168,7 @@
         }
         const c = state.courses.find((c) => c.id === courseEdit);
         if (c) Object.assign(c, data);
-        else state.courses.push({ ...data, id: uid() });
+        else state.courses.push({ ...data, id: uid(), created: Date.now() });
         save();
         document.getElementById("courseDialog").close();
         render();
@@ -1315,6 +2223,7 @@
             learned: "",
             completed: "",
             reviewDate: "",
+            created: Date.now(),
           });
         save();
         document.getElementById("partDialog").close();
@@ -1425,6 +2334,23 @@
           render();
           window.scrollTo({ top: 0, behavior: "smooth" });
           return;
+        }
+        if (a === "theme") {
+          const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+          try {
+            localStorage.setItem(THEME_KEY, t);
+          } catch (e) {}
+          applyTheme(t);
+        }
+        if (a === "account") {
+          renderChrome();
+          document.getElementById("accountDialog").showModal();
+        }
+        if (a === "syncNow") retry();
+        if (a === "signOut") signOut();
+        if (a === "authMode") {
+          authMode = b.dataset.mode;
+          renderLogin(document.getElementById("main"));
         }
         if (a === "newCourse") openCourse(null, b.dataset.box || "sustain");
         if (a === "editCourse") openCourse(id);
@@ -1546,10 +2472,10 @@
         if (!file) return;
         try {
           if (file.size > 25000000) throw Error("Arquivo muito grande.");
-          const incoming = validate(JSON.parse(await file.text()));
+          const incoming = stamp(validate(JSON.parse(await file.text())));
           if (
             confirm(
-              "Substituir os dados atuais por este backup? Exporte antes se quiser preservar seus registros.",
+              `Substituir os dados atuais${user ? ", neste aparelho e na sua conta," : ""} por este backup? Exporte antes se quiser preservar seus registros.`,
             )
           ) {
             state = incoming;
@@ -1600,6 +2526,7 @@
             startTime: "",
             endTime: "",
             nextStep: typeof x.notes === "string" ? x.notes.slice(0, 2000) : "",
+            created: Date.now() + incoming.length,
           });
         }
         return incoming;
@@ -1753,16 +2680,38 @@
           "</body></html>"
         );
       }
+      applyTheme(document.documentElement.dataset.theme);
+      darkQuery.addEventListener("change", (e) => {
+        if (!savedTheme()) applyTheme(e.matches ? "dark" : "light");
+      });
       render();
+      loadCloud();
       setInterval(checkReminders, 30000);
       setInterval(() => {
         if (!document.hidden && !document.querySelector("dialog[open]")) render();
       }, 60000);
+      setInterval(() => {
+        if (!document.hidden) retry();
+      }, 300000);
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) {
           render();
           checkReminders();
+          retry();
         }
+      });
+      addEventListener("online", retry);
+      // Outra aba deste navegador gravou: recarrega daqui, para uma não desfazer o que a outra fez.
+      addEventListener("storage", (e) => {
+        if (e.key !== KEY && e.key !== CLOUD_KEY) return;
+        try {
+          const saved = readState();
+          if (saved) state = saved;
+          cloud = readCloud();
+        } catch (err) {
+          return;
+        }
+        refresh();
       });
       checkReminders();
     </script>
