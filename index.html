@@ -395,11 +395,12 @@
         color: var(--soft);
       }
       /* Estante: cada caixa do método é uma prateleira e cada estudo é uma caixinha de papelão
-         sobre ela, aberta enquanto o estudo anda e fechada depois de concluído. As tábuas são
-         desenhadas no fundo, uma a cada --row de altura; por isso as fileiras têm altura fixa. O
+         sobre ela, aberta enquanto o estudo anda e fechada depois de concluído. A tábua é
+         desenhada no fundo, na altura --row; por isso a fileira tem altura fixa. O
          texto de cada caixinha vem logo abaixo dela, numa faixa de altura --strip, e é essa altura
          igual para todas que mantém as caixinhas de uma fileira alinhadas. */
       .bookcase {
+        container-type: inline-size;
         border: solid var(--wood-frame);
         border-width: 12px 10px 0;
         border-radius: 14px 14px 6px 6px;
@@ -435,14 +436,24 @@
         font-size: 13px;
         line-height: 18px;
       }
+      /* Cada prateleira é uma fileira só: os estudos seguem para a direita e a fileira desliza com
+         o dedo ou pelas setas. Cabem --per caixinhas por vez (duas no celular, mais conforme a
+         estante alarga). A tábua é o fundo da fileira e fica parada enquanto as caixinhas passam. */
       .boxes {
         --strip: 127px;
         --row: 323px;
+        --per: 2;
         display: grid;
-        min-height: var(--row);
-        grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
-        grid-auto-rows: var(--row);
+        height: var(--row);
+        grid-auto-flow: column;
+        grid-auto-columns: calc(100% / var(--per));
+        grid-template-rows: var(--row);
         padding: 0 6px;
+        overflow: auto hidden;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory;
+        scroll-padding: 0 6px;
+        scrollbar-width: none;
         background:
           linear-gradient(#00000030, transparent 12px) 0 0 / 100% var(--row),
           linear-gradient(
@@ -453,6 +464,60 @@
             )
             0 0 / 100% var(--row);
       }
+      .boxes::-webkit-scrollbar {
+        display: none;
+      }
+      @container (min-width: 516px) {
+        .boxes {
+          --per: 3;
+        }
+      }
+      @container (min-width: 684px) {
+        .boxes {
+          --per: 4;
+        }
+      }
+      @container (min-width: 852px) {
+        .boxes {
+          --per: 5;
+        }
+      }
+      @container (min-width: 1020px) {
+        .boxes {
+          --per: 6;
+        }
+      }
+      /* As setas ficam penduradas na tábua de cima, no canto oposto ao nome da prateleira, para
+         não cobrir nenhuma caixinha. Só aparecem quando há mais caixinhas do que cabem, e a que
+         não tem mais para onde ir fica apagada. */
+      .slide {
+        --w: 34px;
+        position: absolute;
+        top: 0;
+        right: calc(10px + var(--w));
+        display: grid;
+        place-items: center;
+        width: var(--w);
+        height: 28px;
+        min-height: 0;
+        padding: 0;
+        border: solid var(--wood-edge);
+        border-width: 0 1px 1px;
+        border-radius: 0 0 0 9px;
+        background: var(--wood-light);
+        box-shadow: 0 2px 4px #00000033;
+      }
+      .slide.next {
+        right: 10px;
+        border-left: 0;
+        border-radius: 0 0 9px;
+      }
+      .slide:disabled {
+        opacity: 1;
+      }
+      .slide:disabled .icon {
+        opacity: 0.3;
+      }
       .box {
         position: relative;
         display: flex;
@@ -461,6 +526,7 @@
         justify-content: flex-end;
         min-width: 0;
         padding: 0 8px 18px;
+        scroll-snap-align: start;
       }
       .box.idle > * {
         opacity: 0.6;
@@ -537,6 +603,10 @@
         font-size: 12px;
         line-height: 16px;
       }
+      /* Na página de ideias não há barra de progresso: a anotação vem logo abaixo do nome. */
+      h3 + .resume {
+        margin-top: 5px;
+      }
       /* A caixinha vazia no fim de cada prateleira guarda o lugar do próximo estudo. */
       .box.add {
         border: 0;
@@ -602,8 +672,25 @@
         fill: var(--label);
       }
       .k-tape,
-      .k-mark {
+      .k-mark,
+      .k-tag {
         fill: var(--lid);
+      }
+      /* A etiqueta pendurada por um barbante na caixinha de uma ideia: avisa que ela não tem data. */
+      .carton .k-string {
+        fill: none;
+        stroke-width: 1.2;
+        stroke-linecap: round;
+      }
+      .k-hole {
+        fill: var(--label);
+        stroke: var(--kraft-line);
+      }
+      .carton text {
+        fill: var(--ink);
+        font-size: 9px;
+        font-weight: 700;
+        text-anchor: middle;
       }
       .carton .k-mark {
         stroke: none;
@@ -954,12 +1041,15 @@
         font-size: 18px;
         line-height: 1.2;
       }
+      /* touch-action: o dedo rola a folha; ampliar com dois dedos ou dois toques fica por conta do
+         leitor (veja "pinch"), e não do navegador, que ampliaria a tela inteira. */
       .readerbody {
         flex: 1;
         padding: 12px;
         background: var(--bg);
         overflow: auto;
         overscroll-behavior: contain;
+        touch-action: pan-x pan-y;
         text-align: center;
       }
       .readerbody canvas {
@@ -1080,6 +1170,10 @@
         .dialoghead button {
           min-width: 44px;
         }
+        .slide {
+          --w: 44px;
+          height: 40px;
+        }
         .days label {
           padding: 10px 12px;
         }
@@ -1195,10 +1289,6 @@
         .hero.inline > button {
           width: auto;
         }
-        /* No celular, sempre duas caixinhas por fileira. */
-        .boxes {
-          grid-template-columns: 1fr 1fr;
-        }
         .stats {
           grid-template-columns: 1fr 1fr;
           gap: 10px;
@@ -1243,6 +1333,7 @@
         }
         /* No celular o leitor ocupa a tela inteira, e o nome do arquivo ganha uma linha só dele. */
         dialog.reader {
+          width: 100%;
           height: 100%;
           max-height: 100dvh;
           margin: 0;
@@ -1255,6 +1346,9 @@
         }
         .readerbar b {
           flex: 1 1 100%;
+        }
+        .readerbody {
+          padding: 6px;
         }
       }
       @media (max-width: 560px) {
@@ -1346,6 +1440,15 @@
               <path d="M7 4.5h3V8H7zM14 10.5h3V14h-3z" />
             </svg>
             <span>Estante</span>
+          </button>
+          <button data-page="ideas">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"
+              />
+              <path d="M9 18h6M10 22h4" />
+            </svg>
+            <span>Ideias</span>
           </button>
           <button data-page="agenda">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -1647,6 +1750,55 @@
         <button class="primary wide" id="completionSubmit">Concluir e guardar aprendizado</button>
       </form>
     </dialog>
+    <dialog id="ideaDialog">
+      <form id="ideaForm">
+        <div class="dialoghead">
+          <h2 id="ideaHeading">Nova ideia</h2>
+          <button type="button" data-close="ideaDialog" aria-label="Fechar">×</button>
+        </div>
+        <label class="field"
+          ><span>O que você quer estudar um dia?</span
+          ><input name="title" maxlength="120" required placeholder="Ex.: aprender a tocar violão"
+        /></label>
+        <label class="field"
+          ><span>Anotação (opcional)</span
+          ><textarea
+            name="note"
+            maxlength="2000"
+            rows="3"
+            placeholder="O que quiser lembrar depois: por que pensou nisso, um livro, um curso."
+          ></textarea></label
+        ><label class="field"
+          ><span>Caixa (opcional)</span
+          ><select name="box">
+            <option value="">Ainda não sei</option>
+            <option value="sustain">Sustentação</option>
+            <option value="season">Temporada</option>
+            <option value="sand">Areia</option>
+          </select></label
+        >
+        <div class="field">
+          <span>Imagem (opcional)</span>
+          <div class="imagerow">
+            <img id="ideaPreview" alt="Imagem escolhida" hidden />
+            <button type="button" data-action="pickImage">Escolher imagem</button>
+            <button type="button" data-action="pasteImage">Colar imagem</button>
+            <button type="button" class="danger" id="ideaClearImage" data-action="clearImage" hidden>
+              Tirar imagem
+            </button>
+          </div>
+          <small
+            >Ela aparece na frente da caixinha e continua nela quando a ideia virar estudo.</small
+          >
+        </div>
+        <p class="error" id="ideaError" role="alert"></p>
+        <button class="primary wide" type="submit">Guardar ideia</button>
+        <div class="actions" id="ideaActions">
+          <button type="button" data-action="startIdea">Começar este estudo</button>
+          <button type="button" class="danger" data-action="deleteIdea">Excluir ideia</button>
+        </div>
+      </form>
+    </dialog>
     <dialog id="readerDialog" class="reader">
       <div class="readerbar">
         <b id="readerTitle"></b>
@@ -1700,8 +1852,8 @@
       const TABLE = "eec_itens";
       const BUCKET = "eec-arquivos";
       const PDF_MAX = 50 * 1024 * 1024;
-      const COLS = ["courses", "parts", "sessions"];
-      const TIPO = { courses: "estudo", parts: "parte", sessions: "sessao" };
+      const COLS = ["courses", "parts", "sessions", "ideas"];
+      const TIPO = { courses: "estudo", parts: "parte", sessions: "sessao", ideas: "ideia" };
       const CLOUD_KEY = "estudo-em-caixas-nuvem";
       const ACCOUNT_KEY = "estudo-em-caixas-conta";
       const THEME_KEY = "estudo-em-caixas-tema";
@@ -1719,6 +1871,7 @@
           courses: [],
           parts: [],
           sessions: [],
+          ideas: [],
           reminders: false,
           notified: {},
         };
@@ -1727,6 +1880,8 @@
         page = "studies",
         selected = null,
         courseEdit = null,
+        courseIdea = null,
+        ideaEdit = null,
         partEdit = null,
         partCourse = null,
         sessionCourse = null,
@@ -1818,6 +1973,7 @@
       // ---------- Consultas aos estudos ----------
       const findCourse = (id) => state.courses.find((c) => c.id === id);
       const findPart = (id) => state.parts.find((p) => p.id === id);
+      const findIdea = (id) => state.ideas.find((i) => i.id === id);
       function courseParts(id) {
         return state.parts.filter((p) => p.course === id);
       }
@@ -1913,6 +2069,20 @@
           !Number.isFinite(s.created)
         );
       }
+      // A ideia é um estudo que ainda não começou: só o nome, uma anotação e, se a pessoa quiser,
+      // a caixa. Tem lista própria (e tipo próprio na nuvem), fora da estante e da agenda.
+      function badIdea(i) {
+        return (
+          !i ||
+          !str(i.id, 100) ||
+          !str(i.title, 120) ||
+          !i.title.trim() ||
+          !str(i.note, 2000) ||
+          !(i.box === "" || Object.hasOwn(BOXES, i.box)) ||
+          !(!i.image || goodImage(i.image)) ||
+          !Number.isFinite(i.created)
+        );
+      }
       function validate(d) {
         if (
           !d ||
@@ -1921,14 +2091,21 @@
           !Array.isArray(d.courses) ||
           !Array.isArray(d.parts) ||
           !Array.isArray(d.sessions) ||
+          !Array.isArray(d.ideas) ||
           d.courses.length > 1000 ||
           d.parts.length > 20000 ||
-          d.sessions.length > 40000
+          d.sessions.length > 40000 ||
+          d.ideas.length > 5000
         )
           throw Error("Backup incompatível.");
         const ids = new Set(),
           parts = new Map(),
-          sessionIds = new Set();
+          sessionIds = new Set(),
+          ideaIds = new Set();
+        for (const i of d.ideas) {
+          if (badIdea(i) || ideaIds.has(i.id)) throw Error("Ideia inválida.");
+          ideaIds.add(i.id);
+        }
         for (const c of d.courses) {
           if (badCourse(c) || ids.has(c.id)) throw Error("Estudo inválido.");
           ids.add(c.id);
@@ -1965,14 +2142,33 @@
           d[k] = d[k].map((x, i) => (Number.isFinite(x.created) ? x : { ...x, created: i + 1 }));
         return d;
       }
+      // Dados gravados antes de as ideias terem lista própria. Não havia a lista; e, na primeira
+      // versão da página Ideias, cada ideia era um estudo na situação "idea".
+      function upgrade(d) {
+        if (d && Array.isArray(d.courses) && !Array.isArray(d.ideas)) {
+          const old = d.courses.filter((c) => c?.status === "idea");
+          d.ideas = old.map((c, i) => ({
+            id: c.id,
+            title: c.title,
+            note: c.goal,
+            box: c.box,
+            image: c.image || "",
+            created: Number.isFinite(c.created) ? c.created : i + 1,
+          }));
+          d.courses = d.courses.filter((c) => !old.includes(c));
+        }
+        return d;
+      }
       function readState() {
         const raw = localStorage.getItem(KEY);
-        return raw ? stamp(validate(JSON.parse(raw))) : null;
+        return raw ? stamp(validate(upgrade(JSON.parse(raw)))) : null;
       }
       function readCloud() {
         try {
           const saved = JSON.parse(localStorage.getItem(CLOUD_KEY)),
             b = saved?.base;
+          // A base de antes das ideias não tem a lista delas; as outras listas continuam valendo.
+          if (b && !b.ideas) b.ideas = [];
           if (typeof saved?.owner === "string")
             return {
               owner: saved.owner,
@@ -2026,15 +2222,15 @@
       }
 
       // ---------- Nuvem: sincronização ----------
-      // Cada estudo, parte e sessão é uma linha na tabela, e cada aparelho guarda em
+      // Cada estudo, parte, sessão e ideia é uma linha na tabela, e cada aparelho guarda em
       // cloud.base a última versão que viu na nuvem. Sincronizar é: baixar tudo, reaplicar por cima
       // o que mudou aqui desde a base, e enviar só a diferença. Assim nada se perde quando dois
       // aparelhos mexem em coisas diferentes, nem quando um deles ficou sem internet.
       const cloudReady = !!(SUPABASE_URL && SUPABASE_KEY);
-      const emptyDoc = () => ({ courses: [], parts: [], sessions: [] });
+      const emptyDoc = () => Object.fromEntries(COLS.map((k) => [k, []]));
       const canon = (x) => JSON.stringify(x, Object.keys(x).sort());
       const copy = (d) =>
-        JSON.parse(JSON.stringify({ courses: d.courses, parts: d.parts, sessions: d.sessions }));
+        JSON.parse(JSON.stringify(Object.fromEntries(COLS.map((k) => [k, d[k]]))));
       function changes(from, to) {
         const out = {};
         for (const k of COLS) {
@@ -2076,6 +2272,7 @@
             .filter((s) => courses.has(s.course))
             .map((s) => (s.part && owner.get(s.part) !== s.course ? { ...s, part: "" } : s))
             .sort(order),
+          ideas: [...doc.ideas].sort(order),
         };
       }
       function unsent() {
@@ -2085,7 +2282,7 @@
         const doc = emptyDoc(),
           seen = new Set(),
           kind = Object.fromEntries(COLS.map((k) => [TIPO[k], k])),
-          bad = { courses: badCourse, parts: badPart, sessions: badSession };
+          bad = { courses: badCourse, parts: badPart, sessions: badSession, ideas: badIdea };
         // O servidor devolve no máximo um tanto de linhas por pedido; segue pedindo até acabar.
         for (let from = 0; ;) {
           const { data, error, count } = await sb
@@ -2218,7 +2415,9 @@
         // Um formulário aberto pode apontar para algo que acabou de ser excluído em outro aparelho.
         const gone = (list, id) => id && !state[list].some((x) => x.id === id),
           stale = {
-            courseDialog: gone("courses", courseEdit),
+            // Vale também para o estudo que está começando a partir de uma ideia (courseIdea).
+            courseDialog: gone("courses", courseEdit) || gone("ideas", courseIdea),
+            ideaDialog: gone("ideas", ideaEdit),
             partDialog: gone("courses", partCourse) || gone("parts", partEdit),
             sessionDialog: gone("courses", sessionCourse),
             completionDialog: gone("parts", completePart),
@@ -2629,6 +2828,7 @@
       const PAGES = {
         agenda: renderAgenda,
         studies: renderStudies,
+        ideas: renderIdeas,
         detail: renderDetail,
         review: renderReview,
         backup: renderBackup,
@@ -2636,7 +2836,12 @@
       function render() {
         const main = $("main"),
           current = page === "detail" ? "studies" : page,
-          due = dueReviews().length;
+          due = dueReviews().length,
+          // Até onde cada prateleira foi deslizada, para ela não voltar ao começo ao redesenhar.
+          slid =
+            main.dataset.view === page
+              ? [...main.querySelectorAll(".boxes")].map((b) => b.scrollLeft)
+              : [];
         renderChrome();
         if (locked()) {
           // Só redesenha se a tela mudou, para não apagar o que a pessoa está digitando.
@@ -2652,7 +2857,45 @@
           b.title = due ? due + " revisão(ões) para hoje ou com data passada" : "";
         });
         (Object.hasOwn(PAGES, page) ? PAGES[page] : renderBackup)(main);
+        main.querySelectorAll(".boxes").forEach((b, i) => {
+          b.scrollLeft = slid[i] || 0;
+          updateSlides(b);
+        });
       }
+      // As setas da prateleira: aparecem quando há mais caixinhas do que cabem, e cada uma só
+      // funciona enquanto há caixinhas escondidas do seu lado.
+      const SLIDES = `
+        <button class="slide" data-action="slide" data-dir="-1" aria-label="Voltar na prateleira" hidden>
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+        </button>
+        <button class="slide next" data-action="slide" data-dir="1" aria-label="Ver mais na prateleira" hidden>
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+        </button>`;
+      function updateSlides(boxes) {
+        const left = boxes.scrollLeft,
+          end = boxes.scrollWidth - boxes.clientWidth;
+        boxes.parentNode.querySelectorAll(".slide").forEach((b) => {
+          b.hidden = end < 2;
+          b.disabled = b.dataset.dir < 0 ? left < 2 : left > end - 2;
+        });
+      }
+      // Desliza a prateleira até a caixinha de um estudo, se ela ficou fora da parte que aparece.
+      function reveal(id) {
+        const box = [...document.querySelectorAll(".cardlink")]
+          .find((b) => b.dataset.id === id)
+          ?.closest(".box");
+        if (!box) return;
+        const boxes = box.parentNode,
+          at = box.getBoundingClientRect(),
+          view = boxes.getBoundingClientRect();
+        if (at.left < view.left || at.right > view.right + 1) boxes.scrollLeft += at.left - view.left;
+      }
+      document.addEventListener(
+        "scroll",
+        (e) => e.target.classList?.contains("boxes") && updateSlides(e.target),
+        { capture: true, passive: true },
+      );
+      addEventListener("resize", () => document.querySelectorAll(".boxes").forEach(updateSlides));
 
       // Pedaços que se repetem nas telas. Atenção ao mexer: o texto de um <p> fica sempre numa
       // linha só, porque em cartões e sessões o parágrafo mostra as quebras de linha como estão.
@@ -2682,14 +2925,26 @@
         );
       }
       // O desenho da caixinha de papelão. A etiqueta da frente mostra a imagem escolhida para o
-      // estudo; sem imagem, fica uma etiqueta com a cor da prateleira. Sem estudo, é a caixinha
-      // vazia que espera o próximo, com um "+" na etiqueta.
-      function carton(c) {
+      // estudo; sem imagem, fica uma etiqueta com a cor da prateleira. A ideia leva uma lâmpada.
+      // Sem estudo, é a caixinha vazia que espera o próximo, com um "+" na etiqueta.
+      function carton(c, idea = false) {
         const label = c?.image
           ? `<image href="${esc(c.image)}" x="16" y="54" width="78" height="52" />`
-          : c
-            ? '<path class="k-mark" d="M16 54h78v12H16z" /><path class="k-ink" d="M26 79h48M26 91h30" />'
-            : '<path class="k-ink" d="M55 66v28M41 80h28" />';
+          : idea
+            ? '<path class="k-ink" d="M49 85a10 10 0 1 1 12 0c-1 1-1.5 2-1.5 4h-9c0-2-.5-3-1.5-4zM51 93h8M53 97h4M55 59v3M39 77h3M68 77h3M43.5 65.5l2 2M66.5 65.5l-2 2" />'
+            : c
+              ? '<path class="k-mark" d="M16 54h78v12H16z" /><path class="k-ink" d="M26 79h48M26 91h30" />'
+              : '<path class="k-ink" d="M55 66v28M41 80h28" />',
+          // A ideia leva também uma etiqueta de pendurar, presa no canto de cima da caixinha.
+          tag = idea
+            ? `<path class="k-string" d="M113 53c-4-5-5-11-2-16M113 53c3-5 3-11-2-16M111 37l-3-5M111 37l3-5" />
+               <g transform="translate(113 53) rotate(6)">
+                 <path class="k-tag" d="M-6-5h12l8 8v31a2 2 0 0 1-2 2h-24a2 2 0 0 1-2-2V3z" />
+                 <circle class="k-hole" r="2" />
+                 <text y="17">Sem</text>
+                 <text y="27">data</text>
+               </g>`
+            : "";
         return `
           <svg class="carton" viewBox="-5 6 138 110" aria-hidden="true">
             <ellipse class="k-shadow" cx="64" cy="110" rx="58" ry="4" />
@@ -2707,6 +2962,7 @@
               <path class="k-top" d="M10 40h90l16-12H26z" />
               <path class="k-tape" d="M49 40h12l16-12H65zM49 40h12v10H49z" />
             </g>
+            ${tag}
           </svg>`;
       }
       // A caixinha de um estudo na estante: aberta enquanto ele anda, fechada depois de concluído.
@@ -2834,6 +3090,7 @@
                     <span class="about"><b>+ Novo estudo</b>${boxes ? "" : `<small>${BOX_TEXT[box]}</small>`}</span>
                   </button>
                 </div>
+                ${SLIDES}
               </section>`;
           };
         main.innerHTML = `
@@ -2842,6 +3099,43 @@
             <button class="primary" data-action="newCourse">+ Novo estudo</button>
           </section>
           <div class="bookcase">${Object.entries(BOXES).map(shelf).join("")}</div>`;
+      }
+      // A caixinha de uma ideia fica fechada até o estudo começar. Mostra o nome, a anotação e, se
+      // já foi escolhida, a caixa do método. O "Sem data" da etiqueta pendurada faz parte do
+      // desenho; aqui ele é repetido para quem usa leitor de tela.
+      function ideaBox(i) {
+        return `
+          <article class="box shut">
+            ${carton(i, true)}
+            <div class="about">
+              <span class="screen-reader">Sem data</span>
+              ${i.box ? `<span class="badge ${i.box}">${BOXES[i.box]}</span>` : ""}
+              <h3><button class="cardlink" data-action="editIdea" data-id="${esc(i.id)}"><span>${esc(i.title)}</span></button></h3>
+              ${i.note ? `<p class="resume">${esc(i.note)}</p>` : ""}
+            </div>
+          </article>`;
+      }
+      function renderIdeas(main) {
+        const boxes = state.ideas.map(ideaBox).join("");
+        main.innerHTML = `
+          ${hero(
+            "Ideias",
+            "Estudos que você ainda vai começar. Sem prazo e sem horário: é só para tirar da cabeça.",
+            '<button class="primary" data-action="newIdea">+ Nova ideia</button>',
+          )}
+          <div class="bookcase">
+            <section class="shelf">
+              <h2>Ainda vou começar</h2>
+              <div class="boxes">
+                ${boxes}
+                <button class="box add" data-action="newIdea">
+                  ${carton()}
+                  <span class="about"><b>+ Nova ideia</b>${boxes ? "" : "<small>Guarde aqui o que quer estudar um dia.</small>"}</span>
+                </button>
+              </div>
+              ${SLIDES}
+            </section>
+          </div>`;
       }
       function renderAgenda(main) {
         const rows = agenda(),
@@ -2988,7 +3282,8 @@
                 3. Divida o conteúdo em partes pequenas e responda para que vai usar cada uma.<br>
                 4. Ao estudar, registre os minutos, o aprendizado e onde vai continuar.<br>
                 5. Conclua a parte quando estiver pronta e escolha uma data de revisão.<br>
-                6. Terminou o estudo? Abra-o e toque em “Concluir e fechar a caixa”: a caixinha dele fecha na estante.
+                6. Terminou o estudo? Abra-o e toque em “Concluir e fechar a caixa”: a caixinha dele fecha na estante.<br>
+                7. Pensou em algo para estudar um dia? Guarde em “Ideias”, sem prazo e sem horário. Quando quiser começar, toque na ideia e em “Começar este estudo”.
               </p>
               <p class="note">Exemplos: higiene ocupacional na sustentação; JavaScript para a entrega de um app na temporada; eletrônica por curiosidade na areia. Vários estudos podem apoiar o mesmo projeto de temporada.</p>
               <button class="primary" data-action="newCourse">Cadastrar meu primeiro estudo</button>
@@ -3027,13 +3322,19 @@
       // ---------- Imagem do estudo ----------
       // A imagem escolhida é reduzida aqui mesmo e guardada junto com o estudo, como texto. Fica
       // pequena de propósito: ela vai para o aparelho, para a conta e para o backup com o resto.
-      let courseImage = "";
-      function showImage(v) {
-        const preview = $("coursePreview");
-        courseImage = v;
+      // O formulário da ideia também aceita imagem. Escolher, colar e tirar valem para o formulário
+      // que estiver aberto: o da ideia ou o do estudo.
+      let courseImage = "",
+        ideaImage = "";
+      const forIdea = () => $("ideaDialog").open;
+      const imageError = () => $(forIdea() ? "ideaError" : "courseError");
+      function showImage(v, idea = forIdea()) {
+        const preview = $(idea ? "ideaPreview" : "coursePreview");
+        if (idea) ideaImage = v;
+        else courseImage = v;
         if (v) preview.src = v;
         else preview.removeAttribute("src");
-        preview.hidden = $("clearImage").hidden = !v;
+        preview.hidden = $(idea ? "ideaClearImage" : "clearImage").hidden = !v;
       }
       function shrink(file) {
         return new Promise((done, fail) => {
@@ -3064,9 +3365,9 @@
       async function useImage(file) {
         try {
           showImage(await shrink(file));
-          $("courseError").textContent = "";
+          imageError().textContent = "";
         } catch (err) {
-          $("courseError").textContent = "Não foi possível usar esta imagem. Tente outra, em JPG ou PNG.";
+          imageError().textContent = "Não foi possível usar esta imagem. Tente outra, em JPG ou PNG.";
         }
       }
       $("imageInput").addEventListener("change", (e) => {
@@ -3074,15 +3375,18 @@
         e.target.value = "";
         if (file) useImage(file);
       });
-      // Com o formulário do estudo aberto, colar (Ctrl+V) uma imagem copiada vale como escolher.
+      // Com um desses formulários aberto, colar (Ctrl+V) uma imagem copiada vale como escolher.
       // Havendo texto junto na área de transferência, é uma colagem comum num campo e segue normal.
       document.addEventListener("paste", (e) => {
-        const file = [...(e.clipboardData?.files || [])].find((f) => f.type.startsWith("image/"));
-        if (!file || !$("courseDialog").open || e.clipboardData.getData("text/plain")) return;
+        const file = [...(e.clipboardData?.files || [])].find((f) => f.type.startsWith("image/")),
+          open = $("courseDialog").open || forIdea();
+        if (!file || !open || e.clipboardData.getData("text/plain")) return;
         e.preventDefault();
         useImage(file);
       });
-      $("pasteImage").hidden = !navigator.clipboard?.read;
+      document
+        .querySelectorAll("[data-action=pasteImage]")
+        .forEach((b) => (b.hidden = !navigator.clipboard?.read));
 
       // ---------- PDF do estudo ----------
       // O arquivo é enviado para a conta assim que é escolhido; no estudo ficam só o caminho e o
@@ -3200,7 +3504,7 @@
       async function openReader(id) {
         const c = findCourse(id),
           note = $("readerNote"),
-          mine = { id, path: c.pdf, doc: null, task: null, page: 1, zoom: 1, turn: 0 };
+          mine = { id, path: c.pdf, doc: null, task: null, page: 1, zoom: 1, turn: 0, boxes: {} };
         if (!sb || !user) {
           notify("Para ler o PDF é preciso estar com internet e dentro da conta.");
           return;
@@ -3210,7 +3514,11 @@
         $("readerPage").textContent = "";
         $("readerCanvas").hidden = true;
         note.hidden = false;
-        note.textContent = "Abrindo o PDF…";
+        // A biblioteca é baixada na primeira leitura (depois o navegador guarda) e, com internet
+        // lenta, isso demora: o aviso diz o que está sendo esperado, para a tela não parecer travada.
+        note.textContent = globalThis.pdfjsLib?.GlobalWorkerOptions.workerPort
+          ? "Abrindo o PDF…"
+          : "Baixando o leitor de PDF… Na primeira vez pode demorar um pouco.";
         $("readerDialog").showModal();
         try {
           const [lib, link] = await Promise.all([
@@ -3218,13 +3526,20 @@
             sb.storage.from(BUCKET).createSignedUrl(c.pdf, 3600),
           ]);
           if (link.error) throw link.error;
-          const doc = await lib.getDocument({
+          const task = lib.getDocument({
             url: link.data.signedUrl,
             isEvalSupported: false,
             cMapUrl: PDFJS + "cmaps/",
             cMapPacked: true,
             standardFontDataUrl: PDFJS + "standard_fonts/",
-          }).promise;
+          });
+          if (reader === mine) note.textContent = "Baixando o PDF…";
+          task.onProgress = ({ loaded, total }) => {
+            if (reader === mine && total)
+              note.textContent =
+                "Baixando o PDF… " + Math.min(100, Math.round((loaded / total) * 100)) + "%";
+          };
+          const doc = await task.promise;
           if (reader !== mine) {
             doc.destroy();
             return;
@@ -3238,9 +3553,58 @@
           note.textContent = "Não foi possível abrir o PDF. Confira a internet e tente de novo.";
         }
       }
+      // Em tela estreita (celular em pé) as margens brancas da folha são cortadas, para o texto
+      // ocupar a largura toda. A parte com tinta é procurada num desenho pequeno da folha, uma vez
+      // por folha; o resultado são frações dela: [esquerda, cima, direita, baixo].
+      async function inkBox(r, n, page) {
+        if (r.boxes[n]) return r.boxes[n];
+        const view = page.getViewport({ scale: 150 / page.getViewport({ scale: 1 }).width }),
+          canvas = document.createElement("canvas"),
+          ctx = canvas.getContext("2d", { willReadFrequently: true }),
+          w = (canvas.width = Math.ceil(view.width)),
+          h = (canvas.height = Math.ceil(view.height));
+        await page.render({ canvasContext: ctx, viewport: view }).promise;
+        const d = ctx.getImageData(0, 0, w, h).data;
+        let x0 = w,
+          y0 = h,
+          x1 = -1,
+          y1 = -1;
+        for (let y = 0, i = 0; y < h; y++)
+          for (let x = 0; x < w; x++, i += 4)
+            if (d[i] < 235 || d[i + 1] < 235 || d[i + 2] < 235) {
+              if (x < x0) x0 = x;
+              if (x > x1) x1 = x;
+              if (y < y0) y0 = y;
+              if (y > y1) y1 = y;
+            }
+        // Folha em branco ou com um risquinho só fica inteira. Nas outras sobra uma beirada de respiro.
+        const edge = 0.02;
+        return (r.boxes[n] =
+          x1 - x0 > w * 0.2
+            ? [
+                Math.max(0, x0 / w - edge),
+                Math.max(0, y0 / h - edge),
+                Math.min(1, (x1 + 1) / w + edge),
+                Math.min(1, (y1 + 1) / h + edge),
+              ]
+            : [0, 0, 1, 1]);
+      }
+      // Que ponto da folha está embaixo de um ponto da tela (spot), e como rolar para ele continuar
+      // ali depois de a folha mudar de tamanho (hold).
+      function spot(x, y) {
+        const b = $("readerCanvas").getBoundingClientRect();
+        return { x, y, fx: (x - b.left) / b.width, fy: (y - b.top) / b.height };
+      }
+      function hold(s) {
+        const body = $("readerBody"),
+          b = $("readerCanvas").getBoundingClientRect();
+        body.scrollLeft += b.left + s.fx * b.width - s.x;
+        body.scrollTop += b.top + s.fy * b.height - s.y;
+      }
       // Desenha a folha atual numa tela nova e só então troca a que está à vista: a leitura não
       // pisca, e um pedido mais novo (outra folha, outro tamanho) desiste do anterior.
-      async function drawPage(top) {
+      // top: começa do alto da folha (folha nova). keep: mantém no lugar o ponto dado por spot().
+      async function drawPage(top, keep) {
         const r = reader,
           body = $("readerBody"),
           note = $("readerNote");
@@ -3251,26 +3615,36 @@
         try {
           const page = await r.doc.getPage(r.page),
             base = page.getViewport({ scale: 1 }),
-            scale = (Math.max(120, body.clientWidth - 24) / base.width) * r.zoom,
+            room = body.clientWidth - 2 * parseFloat(getComputedStyle(body).paddingLeft),
+            [x0, y0, x1, y1] = room < 700 ? await inkBox(r, r.page, page) : [0, 0, 1, 1],
+            width = base.width * (x1 - x0),
+            height = base.height * (y1 - y0),
+            scale = (Math.max(120, room) / width) * r.zoom,
             // Telas de celular têm 2 ou 3 pontos por medida; a folha usa todos, até um total de
             // pontos que o aparelho aguenta.
             dots = Math.min(
               devicePixelRatio || 1,
-              Math.sqrt(12e6 / (base.width * base.height * scale * scale)),
+              Math.sqrt(12e6 / (width * height * scale * scale)),
             ),
-            view = page.getViewport({ scale: scale * dots }),
+            k = scale * dots,
+            view = page.getViewport({
+              scale: k,
+              offsetX: -x0 * base.width * k,
+              offsetY: -y0 * base.height * k,
+            }),
             canvas = document.createElement("canvas");
           if (reader !== r || r.turn !== turn) return;
           canvas.id = "readerCanvas";
-          canvas.width = Math.ceil(view.width);
-          canvas.height = Math.ceil(view.height);
-          canvas.style.width = Math.round(view.width / dots) + "px";
+          canvas.width = Math.ceil(width * k);
+          canvas.height = Math.ceil(height * k);
+          canvas.style.width = Math.round(width * scale) + "px";
           r.task = page.render({ canvasContext: canvas.getContext("2d"), viewport: view });
           await r.task.promise;
           if (reader !== r || r.turn !== turn) return;
           $("readerCanvas").replaceWith(canvas);
           note.hidden = true;
           if (top) body.scrollTo(0, 0);
+          else if (keep) hold(keep);
         } catch (e) {
           if (reader !== r || r.turn !== turn) return;
           console.warn("PDF:", e?.message || e);
@@ -3285,10 +3659,14 @@
         r.page = to;
         drawPage(true);
       }
-      function zoomPage(k) {
-        if (!reader?.doc) return;
-        reader.zoom = Math.min(4, Math.max(0.5, reader.zoom * k));
-        drawPage();
+      // Muda o tamanho da folha mantendo no lugar o ponto indicado; sem ponto, o meio da tela.
+      function zoomPage(k, at) {
+        const r = reader,
+          box = $("readerBody").getBoundingClientRect();
+        if (!r?.doc) return;
+        const keep = spot(at?.x ?? box.left + box.width / 2, at?.y ?? box.top + box.height / 2);
+        r.zoom = Math.min(6, Math.max(0.5, r.zoom * k));
+        drawPage(false, keep);
       }
       $("readerDialog").addEventListener("close", () => {
         const r = reader,
@@ -3313,38 +3691,97 @@
         e.preventDefault();
         turnPage(n);
       });
-      // No celular, arrastar o dedo para o lado vira a folha. Com a folha ampliada o dedo só a
-      // arrasta, e por isso o gesto fica desligado.
-      let swipe = null;
+      // Gestos no celular. Dois dedos (pinça) ampliam e reduzem a folha: enquanto os dedos se mexem
+      // ela só estica e, ao soltar, é redesenhada nítida no novo tamanho. Dois toques seguidos no
+      // mesmo lugar ampliam ali, ou voltam ao tamanho da tela. Arrastar um dedo para o lado vira a
+      // folha; com a folha ampliada o dedo só a arrasta, e por isso esse gesto fica desligado.
+      let swipe = null,
+        pinch = null,
+        lastTap = null;
+      const fingers = (e) => {
+        const [a, b] = e.touches;
+        return {
+          gap: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+          x: (a.clientX + b.clientX) / 2,
+          y: (a.clientY + b.clientY) / 2,
+        };
+      };
       $("readerBody").addEventListener(
         "touchstart",
         (e) => {
           const t = e.touches[0];
-          swipe = e.touches.length === 1 ? { x: t.clientX, y: t.clientY } : null;
+          swipe = e.touches.length === 1 ? { x: t.clientX, y: t.clientY, t: e.timeStamp } : null;
+          pinch =
+            e.touches.length === 2 && reader?.doc
+              ? {
+                  gap: fingers(e).gap,
+                  width: $("readerCanvas").clientWidth,
+                  zoom: reader.zoom,
+                  k: 1,
+                }
+              : null;
         },
         { passive: true },
+      );
+      $("readerBody").addEventListener(
+        "touchmove",
+        (e) => {
+          if (!pinch || e.touches.length !== 2) return;
+          e.preventDefault();
+          const now = fingers(e),
+            keep = spot(now.x, now.y);
+          pinch.k = Math.min(6, Math.max(0.5, (pinch.zoom * now.gap) / pinch.gap)) / pinch.zoom;
+          $("readerCanvas").style.width = pinch.width * pinch.k + "px";
+          hold(keep);
+        },
+        { passive: false },
       );
       $("readerBody").addEventListener(
         "touchend",
         (e) => {
           const from = swipe,
+            was = pinch,
             t = e.changedTouches[0],
             body = $("readerBody");
-          swipe = null;
-          if (!from || body.scrollWidth > body.clientWidth + 2) return;
+          swipe = pinch = null;
+          if (was) {
+            if (reader?.doc) zoomPage(was.k);
+            return;
+          }
+          if (!from || e.touches.length) return;
           const dx = t.clientX - from.x,
             dy = t.clientY - from.y;
-          if (Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy)) turnPage(dx < 0 ? 1 : -1);
+          if (Math.hypot(dx, dy) < 12 && e.timeStamp - from.t < 300) {
+            const again =
+              lastTap &&
+              e.timeStamp - lastTap.t < 350 &&
+              Math.hypot(t.clientX - lastTap.x, t.clientY - lastTap.y) < 40;
+            lastTap = again ? null : { x: t.clientX, y: t.clientY, t: e.timeStamp };
+            if (again && reader?.doc)
+              zoomPage((reader.zoom > 1.4 ? 1 : 2.4) / reader.zoom, { x: t.clientX, y: t.clientY });
+          } else if (
+            body.scrollWidth <= body.clientWidth + 2 &&
+            Math.abs(dx) > 70 &&
+            Math.abs(dx) > 2 * Math.abs(dy)
+          )
+            turnPage(dx < 0 ? 1 : -1);
         },
         { passive: true },
       );
 
-      function openCourse(id = null, box = "sustain") {
+      // idea: a ideia que está virando estudo. O formulário já abre com o que ela tem, e ela sai
+      // da lista de ideias quando o estudo é salvo.
+      function openCourse(id = null, box = "sustain", idea = null) {
         courseEdit = id;
+        courseIdea = idea?.id ?? null;
         courseForm.reset();
         const c = findCourse(id);
-        $("courseHeading").textContent = c ? "Editar estudo" : "Novo estudo";
-        showImage(c?.image || "");
+        $("courseHeading").textContent = idea
+          ? "Começar estudo"
+          : c
+            ? "Editar estudo"
+            : "Novo estudo";
+        showImage(c?.image || idea?.image || "", false);
         pdfTurn++;
         pdfBusy = false;
         coursePdf = { path: "", name: "" };
@@ -3369,8 +3806,12 @@
             .querySelectorAll("[name=days]")
             .forEach((el) => (el.checked = c.days.includes(Number(el.value))));
         } else {
-          courseForm.elements.box.value = box;
+          courseForm.elements.box.value = idea?.box || box;
           courseForm.elements.scheduleStart.value = today();
+        }
+        if (idea) {
+          courseForm.elements.title.value = idea.title;
+          courseForm.elements.goal.value = idea.note;
         }
         $("courseError").textContent = "";
         $("courseDialog").showModal();
@@ -3419,18 +3860,23 @@
           error.textContent = "Use um link começando com https:// ou http://.";
           return;
         }
-        const c = findCourse(courseEdit);
+        const c = findCourse(courseEdit),
+          started = !c && !!courseIdea,
+          id = c?.id || uid();
         // PDF trocado ou tirado: o arquivo anterior sai da conta. O atual passa a ser do estudo,
         // e por isso fechar o formulário não o descarta.
         if (c?.pdf !== data.pdf) trash(c?.pdf);
         data.pdfPage = c?.pdf === data.pdf ? c.pdfPage || 1 : 1;
         coursePdf = { path: "", name: "" };
         if (c) Object.assign(c, data);
-        else state.courses.push({ ...data, id: uid(), created: Date.now() });
+        else state.courses.push({ ...data, id, created: Date.now() });
+        if (started) state.ideas = state.ideas.filter((i) => i.id !== courseIdea);
         save();
         $("courseDialog").close();
-        render();
-        notify("Estudo e horários salvos.");
+        if (started) go("studies");
+        else render();
+        reveal(id);
+        notify(started ? "A ideia virou estudo e já está na estante." : "Estudo e horários salvos.");
       });
       const partForm = $("partForm");
       function openPart(course, id = null) {
@@ -3576,12 +4022,63 @@
             : "Parte concluída. Aprendizado e aplicação salvos.",
         );
       });
+      // A ideia vira estudo de verdade quando passa pelo formulário do estudo (veja openCourse).
+      const ideaForm = $("ideaForm");
+      function openIdea(id = null) {
+        ideaEdit = id;
+        ideaForm.reset();
+        const i = findIdea(id);
+        if (i) for (const k of ["title", "note", "box"]) ideaForm.elements[k].value = i[k];
+        showImage(i?.image || "", true);
+        $("ideaHeading").textContent = i ? "Editar ideia" : "Nova ideia";
+        $("ideaActions").hidden = !i;
+        $("ideaError").textContent = "";
+        $("ideaDialog").showModal();
+      }
+      // Grava o que está no formulário e devolve a ideia; sem nome, avisa e não grava.
+      function saveIdea() {
+        const data = Object.fromEntries(new FormData(ideaForm));
+        data.title = data.title.trim();
+        data.note = data.note.trim();
+        data.image = ideaImage;
+        if (!data.title) {
+          $("ideaError").textContent = "Escreva o que você quer estudar.";
+          return null;
+        }
+        let i = findIdea(ideaEdit);
+        if (i) Object.assign(i, data);
+        else state.ideas.push((i = { ...data, id: uid(), created: Date.now() }));
+        save();
+        return i;
+      }
+      ideaForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const i = saveIdea();
+        if (!i) return;
+        $("ideaDialog").close();
+        render();
+        reveal(i.id);
+        notify("Ideia guardada.");
+      });
+      // Fechar o formulário sem mexer em nada: a caixinha que abriu para mostrá-lo volta a fechar.
+      $("ideaDialog").addEventListener("close", () =>
+        document.querySelector(".box.opening")?.classList.remove("opening"),
+      );
 
       // ---------- Botões ----------
       function go(to) {
         page = to;
         render();
         window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      // Caixinha fechada: primeiro ela abre, e só depois aparece o que foi pedido (then).
+      function unbox(b, then) {
+        const box = b.closest(".box.shut");
+        if (!box || matchMedia("(prefers-reduced-motion: reduce)").matches) then();
+        else if (!box.classList.contains("opening")) {
+          box.classList.add("opening");
+          setTimeout(then, 600);
+        }
       }
       // Um botão com data-action="nome" chama a função de mesmo nome desta lista.
       const ACTIONS = {
@@ -3609,27 +4106,52 @@
         newCourse(b) {
           openCourse(null, b.dataset.box || "sustain");
         },
+        // A seta desliza a prateleira uma fileira inteira para o lado dela.
+        slide(b) {
+          const boxes = b.parentNode.querySelector(".boxes");
+          boxes.scrollBy({
+            left: b.dataset.dir * boxes.clientWidth,
+            behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+          });
+        },
         editCourse(b) {
           openCourse(b.dataset.id);
         },
+        newIdea() {
+          openIdea();
+        },
+        editIdea(b) {
+          const id = b.dataset.id;
+          unbox(b, () => {
+            if (findIdea(id)) openIdea(id);
+          });
+        },
+        // Começar: guarda o que foi mexido na ideia e segue para o formulário do estudo.
+        startIdea() {
+          const i = saveIdea();
+          if (!i) return;
+          $("ideaDialog").close();
+          render();
+          openCourse(null, "sustain", i);
+        },
+        deleteIdea() {
+          if (!confirm("Excluir esta ideia?")) return;
+          state.ideas = state.ideas.filter((i) => i.id !== ideaEdit);
+          save();
+          $("ideaDialog").close();
+          render();
+        },
         open(b) {
-          const box = b.closest(".box.shut"),
-            show = () => {
-              selected = b.dataset.id;
-              go("detail");
-            };
-          // Caixinha fechada: primeiro ela abre, depois aparece o estudo.
-          if (!box || matchMedia("(prefers-reduced-motion: reduce)").matches) show();
-          else if (!box.classList.contains("opening")) {
-            box.classList.add("opening");
-            setTimeout(show, 600);
-          }
+          unbox(b, () => {
+            selected = b.dataset.id;
+            go("detail");
+          });
         },
         pickImage() {
           $("imageInput").click();
         },
         async pasteImage() {
-          const error = $("courseError");
+          const error = imageError();
           try {
             for (const item of await navigator.clipboard.read()) {
               const type = item.types.find((t) => t.startsWith("image/"));
@@ -3836,7 +4358,7 @@
         if (!file) return;
         try {
           if (file.size > 25000000) throw Error("Arquivo muito grande.");
-          const incoming = stamp(validate(JSON.parse(await file.text())));
+          const incoming = stamp(validate(upgrade(JSON.parse(await file.text()))));
           if (
             confirm(
               `Substituir os dados atuais${user ? ", neste aparelho e na sua conta," : ""} por este backup? Exporte antes se quiser preservar seus registros.`,
@@ -4039,6 +4561,7 @@
       }
       function reportBody() {
         const rows = agenda(),
+          later = state.ideas,
           box = ([key, label]) => `
             <section>
               <h2>${label}</h2>
@@ -4056,6 +4579,7 @@
           <h2>Agenda dos próximos 7 dias</h2>
           ${rows.length ? `<ul>${rows.map((r) => `<li>${fmt(r.date)} · ${hours(r)} · ${esc(r.title)} (${BOXES[r.box]})</li>`).join("")}</ul>` : "<p>Nenhum horário definido.</p>"}
           ${Object.entries(BOXES).map(box).join("")}
+          ${later.length ? `<h2>Ideias para começar um dia</h2><ul>${later.map((i) => `<li>${esc(i.title)}${i.note ? " — " + esc(i.note) : ""}</li>`).join("")}</ul>` : ""}
           <h2>Minha próxima ação</h2>
           <p>Reserve um horário viável, escolha uma parte pendente e pratique a aplicação que você escreveu. Ao terminar, registre o aprendizado e o ponto de retomada. Na areia, explore sem obrigação de entrega.</p>
           <p>Este relatório não restaura os dados. Para isso, use o backup JSON.</p>

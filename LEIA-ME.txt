@@ -27,6 +27,12 @@ MODO CLARO E ESCURO
 O botão de lua/sol no topo troca o tema. Sem escolha, o app segue o tema do
 aparelho. A escolha vale só para o aparelho em que foi feita.
 
+IDEIAS
+A página Ideias guarda os estudos que você ainda vai começar: só o nome e, se
+quiser, uma anotação e a caixa. Não têm prazo nem horário e ficam fora da
+estante e da agenda. Para começar um deles, toque na ideia e em "Começar este
+estudo": ele passa para a estante.
+
 FUNCIONAMENTO
 Links de materiais precisam de conexão. Enviar e ler PDF também.
 O PDF abre num leitor dentro do app (botão Ler PDF, na tela do estudo), que
@@ -37,6 +43,9 @@ Com o navegador fechado ou suspenso, use também o alarme do celular.
 PARA QUEM MANTÉM O APP
 supabase/schema.sql cria a tabela, o espaço dos PDFs (Storage) e as regras de
 acesso no Supabase. Cole o arquivo inteiro no SQL Editor e rode; pode repetir.
+A página Ideias guarda cada ideia na tabela com o tipo 'ideia'. Num projeto
+criado antes dela, rode o schema.sql de novo antes de usar: sem isso a tabela
+recusa as ideias e a sincronização para até ele ser rodado.
 O endereço e a chave pública do projeto ficam no começo do script, em
 index.html; o endereço aparece também na linha Content-Security-Policy.
 Nunca coloque no app a chave secreta (service_role) do Supabase.

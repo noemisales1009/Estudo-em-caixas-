@@ -119,7 +119,8 @@ function responder(method, url, h, body) {
       if (q.get("on_conflict") !== "user_id,tipo,id") return json(400, { code: "PGRST", message: "on_conflict inesperado: " + q.get("on_conflict") });
       for (const r of dados) {
         if (r.user_id !== u.id) return json(403, { code: "42501", message: "new row violates row-level security policy" });
-        if (!["estudo", "parte", "sessao"].includes(r.tipo) || typeof r.id !== "string" || !r.dados || typeof r.dados !== "object") return json(400, { code: "23514", message: "violates check constraint" });
+        // fake.semIdeia imita a tabela de antes da página Ideias, que ainda recusa o tipo 'ideia'.
+        if (!["estudo", "parte", "sessao", ...(fake.semIdeia ? [] : ["ideia"])].includes(r.tipo) || typeof r.id !== "string" || !r.dados || typeof r.dados !== "object") return json(400, { code: "23514", message: "violates check constraint" });
       }
       for (const r of dados) fake.rows.set(chave(r), { user_id: r.user_id, tipo: r.tipo, id: r.id, dados: jsonb(r.dados) });
       return { status: 201, headers: {} };
@@ -262,6 +263,7 @@ const entrar = async (d, email, senha, modo = "in") => {
 };
 const novoEstudo = (d, titulo, extra = {}) => ev(d, `(()=>{document.querySelector('[data-action=newCourse]').click();const v=${JSON.stringify({ title: titulo, goal: "Propósito de " + titulo, ...extra })};for(const k in v){if(k==='days')courseForm.querySelectorAll('[name=days]').forEach(c=>c.checked=v.days.includes(+c.value));else courseForm.elements[k].value=v[k];}courseForm.requestSubmit();return state.courses.find(c=>c.title===v.title)?.id;})()`);
 const novaParte = (d, curso, titulo) => ev(d, `(()=>{openPart(${JSON.stringify(curso)});partForm.elements.title.value=${JSON.stringify(titulo)};partForm.elements.application.value='Usar ${titulo}';partForm.requestSubmit();return state.parts.find(p=>p.title===${JSON.stringify(titulo)})?.id;})()`);
+const novaIdeia = (d, titulo, extra = {}) => ev(d, `(()=>{openIdea();const v=${JSON.stringify({ title: titulo, ...extra })};for(const k in v)ideaForm.elements[k].value=v[k];ideaForm.requestSubmit();return state.ideas.find(i=>i.title===v.title)?.id;})()`);
 const titulos = (d, lista = "courses") => ev(d, `state.${lista}.map(x=>x.title)`);
 const semTransbordo = (d) => ev(d, "document.documentElement.scrollWidth <= window.innerWidth + 1");
 
@@ -278,12 +280,43 @@ try {
   await ev(L, `(()=>{openSession(${JSON.stringify(c1)});sessionForm.elements.minutes.value=30;sessionForm.elements.learned.value='variáveis';sessionForm.elements.nextStep.value='aula 2';sessionForm.requestSubmit();openCompletion(${JSON.stringify(p1)});completionForm.elements.learned.value='entendi';completionForm.requestSubmit();})()`);
   ok("cria estudo, partes, sessão e conclui parte", await ev(L, "state.courses.length===1 && state.parts.length===2 && state.sessions.length===1 && state.parts[0].done"));
   ok("novos itens ganham data de criação", await ev(L, "state.courses.every(c=>c.created>1e12) && state.parts.every(p=>p.created>1e12)"));
-  for (const pg of ["studies", "agenda", "review", "backup"]) {
+  for (const pg of ["studies", "ideas", "agenda", "review", "backup"]) {
     await ev(L, `document.querySelector('nav [data-page=${pg}]').click()`);
     ok(`celular: tela ${pg} sem rolagem lateral`, await semTransbordo(L));
   }
   ok("celular: menu fica fixo embaixo, com ícones", await ev(L, "getComputedStyle(document.querySelector('.top nav')).position==='fixed' && getComputedStyle(document.querySelector('.top nav .icon')).display==='block'"));
-  ok("celular: rótulos curtos no menu", (await ev(L, "[...document.querySelectorAll('nav button')].map(b=>b.innerText.trim()).join('|')")) === "Estante|Agenda|Revisão|Ajuda");
+  ok("celular: rótulos curtos no menu", (await ev(L, "[...document.querySelectorAll('nav button')].map(b=>b.innerText.trim()).join('|')")) === "Estante|Ideias|Agenda|Revisão|Ajuda");
+  // ideias: estudos que ainda não começaram, guardados sem prazo e sem horário
+  await ev(L, "document.querySelector('nav [data-page=ideas]').click()");
+  const i1 = await novaIdeia(L, "Violão", { note: "Tocar uma música inteira" });
+  const i2 = await novaIdeia(L, "Astronomia", { box: "sand" });
+  ok("ideia guardada na lista dela, só com nome, anotação e caixa: sem prazo e sem horário", await ev(L, `(()=>{const i=findIdea(${JSON.stringify(i1)});return Object.keys(i).sort().join()==='box,created,id,image,note,title' && i.box==='' && i.image==='' && i.note==='Tocar uma música inteira' && state.courses.length===1 && !ideaDialog.open})()`));
+  const figura = await ev(L, "(()=>{const c=document.createElement('canvas');c.width=c.height=40;c.getContext('2d').fillRect(0,0,40,40);return c.toDataURL('image/jpeg',.8)})()");
+  await ev(L, `(()=>{openIdea(${JSON.stringify(i1)});showImage(${JSON.stringify(figura)});ideaForm.requestSubmit();})()`);
+  ok("imagem da ideia: fica guardada com ela e aparece na frente da caixinha fechada", await ev(L, `findIdea(${JSON.stringify(i1)}).image===${JSON.stringify(figura)} && courseImage==='' && document.querySelectorAll('article.box.shut image').length===1 && !document.getElementById('ideaPreview').hidden`));
+  ok("página Ideias: uma caixinha fechada por ideia, com a etiqueta 'Sem data' pendurada, e a de nova ideia", await ev(L, "page==='ideas' && document.querySelectorAll('.shelf').length===1 && document.querySelectorAll('article.box.shut .carton').length===2 && document.querySelectorAll('.box.add').length===1 && document.querySelectorAll('article.box .carton .k-tag').length===2 && !document.querySelector('.box.add .k-tag') && [...document.querySelectorAll('article.box:first-child .carton text')].map(t=>t.textContent).join(' ')==='Sem data' && /Violão[^]*Tocar uma música inteira[^]*Areia[^]*Astronomia/.test(document.querySelector('.boxes').innerText)"), await ev(L, "document.querySelector('.boxes')?.innerText"));
+  ok("celular: página de ideias sem rolagem lateral", await semTransbordo(L));
+  await foto(L, "2b-celular-claro-ideias");
+  ok("ideia fica fora da estante e da agenda, e entra no relatório como ideia", await ev(L, "(()=>{page='studies';render();const n=document.querySelectorAll('article.box').length;page='ideas';render();return n===1 && agenda().every(r=>r.title==='JavaScript') && /Ideias para começar um dia[^]*Violão — Tocar uma música inteira/.test(reportBody()) && !/Astronomia ·/.test(reportBody())})()"));
+  ok("dados com ideias passam na conferência; ideia com caixa que não existe, não", await ev(L, "(()=>{validate(JSON.parse(JSON.stringify(state)));try{validate({...state,ideas:[{...state.ideas[0],box:'outra'}]});return false}catch(e){return true}})()"));
+  ok("dados de antes das ideias abrem; e ideia da primeira versão (um estudo na situação 'idea') vira ideia", await ev(L, "(()=>{const velho=JSON.parse(JSON.stringify(state));delete velho.ideas;velho.courses.push({...velho.courses[0],id:'velha',title:'Ideia velha',status:'idea',box:'',goal:'nota antiga'});const d=validate(upgrade(velho));return d.courses.length===1 && d.ideas.length===1 && d.ideas[0].id==='velha' && d.ideas[0].note==='nota antiga' && d.ideas[0].box===''})()"));
+  await ev(L, `document.querySelector('[data-action=editIdea][data-id=${JSON.stringify(i1)}]').click()`);
+  ok("tocar na ideia: a caixinha abre e só depois aparece o formulário dela, com Começar e Excluir", (await ev(L, "!ideaDialog.open && document.querySelectorAll('.box.shut.opening').length===1")) && (await ate(L, "ideaDialog.open && ideaForm.elements.title.value==='Violão' && !document.getElementById('ideaActions').hidden")));
+  await ev(L, "document.querySelector('#ideaDialog [data-close]').click()");
+  ok("fechar o formulário sem mexer: a caixinha volta a fechar", await ate(L, "!ideaDialog.open && !document.querySelector('.box.opening') && document.querySelectorAll('article.box.shut').length===2"));
+  await ev(L, `document.querySelector('[data-action=editIdea][data-id=${JSON.stringify(i1)}]').click()`);
+  await ate(L, "ideaDialog.open");
+  await foto(L, "2c-celular-claro-ideia-aberta");
+  await ev(L, "document.querySelector('[data-action=startIdea]').click()");
+  ok("Começar: abre o formulário do estudo já preenchido, em andamento e valendo desde hoje", await ev(L, "!ideaDialog.open && courseDialog.open && document.getElementById('courseHeading').textContent==='Começar estudo' && courseForm.elements.title.value==='Violão' && courseForm.elements.goal.value==='Tocar uma música inteira' && courseForm.elements.status.value==='active' && courseForm.elements.box.value==='sustain' && courseForm.elements.scheduleStart.value===today() && courseImage===ideaImage && courseImage.length>100"));
+  await ev(L, "courseDialog.close()");
+  ok("desistir de começar: continua sendo ideia", await ev(L, `!!findIdea(${JSON.stringify(i1)}) && state.ideas.length===2 && state.courses.length===1`));
+  await ev(L, `(()=>{openIdea(${JSON.stringify(i1)});document.querySelector('[data-action=startIdea]').click();courseForm.elements.box.value='sand';courseForm.requestSubmit();})()`);
+  ok("começar de verdade: a ideia sai da lista de ideias, vira estudo e vai para a estante", await ev(L, `(()=>{const c=state.courses.find(c=>c.title==='Violão');return c.status==='active' && c.box==='sand' && c.goal==='Tocar uma música inteira' && c.image===${JSON.stringify(figura)} && !findIdea(${JSON.stringify(i1)}) && state.ideas.length===1 && page==='studies' && document.querySelectorAll('.shelf.sand article.box').length===1})()`));
+  L.dialogos.length = 0;
+  await ev(L, `(()=>{openIdea(${JSON.stringify(i2)});document.querySelector('[data-action=deleteIdea]').click();})()`);
+  ok("excluir ideia: pergunta antes e apaga", L.dialogos.some((m) => /Excluir esta ideia/.test(m)) && (await ev(L, "!ideaDialog.open && state.ideas.length===0 && state.courses.length===2")));
+  await ev(L, `(()=>{selected=state.courses.find(c=>c.title==='Violão').id;page='detail';render();document.querySelector('[data-action=deleteCourse]').click();})()`);
   await ev(L, "document.querySelector('nav [data-page=studies]').click()");
   await foto(L, "2-celular-claro-estante");
   ok("estante: uma prateleira por caixa, e em cada uma a caixinha de novo estudo", await ev(L, "document.querySelectorAll('.shelf').length===3 && document.querySelectorAll('.shelf .box.add .carton').length===3"));
@@ -337,7 +370,46 @@ try {
   await foto(D, "8-computador-escuro-estudos");
   await ev(D, "document.getElementById('themeButton').click()");
   await foto(D, "9-computador-claro-estudos");
+  ok("computador: cabem na fileira tantas caixinhas quantas a largura da estante permite, e sem seta à toa", await ev(D, "(()=>{page='studies';render();const b=document.querySelector('.boxes');return +getComputedStyle(b).getPropertyValue('--per')===Math.floor((b.clientWidth-12)/168) && b.scrollWidth<=b.clientWidth && [...document.querySelectorAll('.slide')].every(s=>s.hidden)})()"));
   ok("computador: sem erros no console", D.erros.length === 0, D.erros.join(" | "));
+
+  // prateleira com mais estudos do que cabem na tela: a fileira segue para a direita e desliza
+  console.log("\n— Prateleira que desliza, celular —");
+  const S = await aparelho("prateleira");
+  await abrir(S, "?modo=local");
+  const fileira = "document.querySelector('.shelf.sustain .boxes')", seta = (lado) => `document.querySelector('.shelf.sustain .slide${lado}')`;
+  // Seta que funciona, seta apagada (não há mais para onde ir) e setas longe de qualquer caixinha.
+  const pode = (s) => `(!${s}.hidden && !${s}.disabled)`, apagada = (s) => `(!${s}.hidden && ${s}.disabled)`;
+  const livres = "[...document.querySelectorAll('.slide:not([hidden])')].every(s=>{const a=s.getBoundingClientRect();return [...s.parentNode.querySelectorAll('.carton')].every(c=>{const b=c.getBoundingClientRect();return a.right<=b.left||a.left>=b.right||a.bottom<=b.top})})";
+  await novoEstudo(S, "Um");
+  ok("prateleira com um estudo: cabe tudo, nenhuma seta", await ev(S, `${fileira}.scrollWidth<=${fileira}.clientWidth && ${seta("")}.hidden && ${seta(".next")}.hidden`));
+  for (const t of ["Dois", "Três", "Quatro"]) await novoEstudo(S, t);
+  ok("os estudos seguem para a direita, numa fileira só, duas caixinhas por vez", await ev(S, `(()=>{const b=${fileira},k=[...b.children];return k.length===5 && k.every(x=>x.offsetTop===k[0].offsetTop) && b.offsetHeight===323 && Math.abs(k[0].offsetWidth-(b.clientWidth-12)/2)<1 && b.scrollWidth>b.clientWidth*2})()`));
+  ok("estudo novo: a prateleira desliza até a caixinha dele", await ev(S, `(()=>{const r=[...document.querySelectorAll('.cardlink')].find(b=>b.innerText==='Quatro').closest('.box').getBoundingClientRect(),v=${fileira}.getBoundingClientRect();return r.left>=v.left && r.right<=v.right+1})()`));
+  ok("redesenhar a tela não devolve a prateleira ao começo", await ev(S, `(()=>{const x=${fileira}.scrollLeft;render();return x>0 && ${fileira}.scrollLeft===x})()`));
+  await ev(S, `${fileira}.scrollLeft=0`);
+  ok("no começo da prateleira: a seta da direita funciona e a da esquerda fica apagada", await ate(S, `${apagada(seta(""))} && ${pode(seta(".next"))}`));
+  ok("as setas ficam no canto da prateleira, sem cobrir nenhuma caixinha", await ev(S, `document.querySelectorAll('.slide:not([hidden])').length===2 && ${livres}`));
+  await foto(S, "9b-celular-prateleira-comeco");
+  await ev(S, `${seta(".next")}.click()`);
+  ok("a seta desliza uma fileira inteira e a da esquerda passa a funcionar", await ate(S, `Math.abs(${fileira}.scrollLeft-(${fileira}.clientWidth-12))<2 && ${pode(seta(""))}`), await ev(S, `${fileira}.scrollLeft`));
+  await foto(S, "9c-celular-prateleira-meio");
+  await ev(S, `${seta(".next")}.click()`);
+  ok("no fim da prateleira: a caixinha de novo estudo, e a seta da direita apagada", await ate(S, `${apagada(seta(".next"))} && ${pode(seta(""))} && ${fileira}.lastElementChild.getBoundingClientRect().right<=${fileira}.getBoundingClientRect().right+1`));
+  await ev(S, `${seta("")}.click()`);
+  ok("a seta da esquerda volta uma fileira, e a da direita volta a funcionar", await ate(S, `Math.abs(${fileira}.scrollLeft-(${fileira}.clientWidth-12)/2)<2 && ${pode(seta(".next"))}`), await ev(S, `${fileira}.scrollLeft`));
+  ok("prateleira que desliza não faz a página rolar para o lado", await semTransbordo(S));
+  // a prateleira da página Ideias desliza do mesmo jeito
+  await ev(S, "document.querySelector('nav [data-page=ideas]').click()");
+  for (const t of ["Ideia A", "Ideia B", "Ideia C"]) await novaIdeia(S, t);
+  ok("ideias: fileira só, e a prateleira desliza até a ideia nova", await ev(S, `(()=>{const b=document.querySelector('.boxes'),k=[...b.children],r=k[2].getBoundingClientRect(),v=b.getBoundingClientRect();return page==='ideas' && k.length===4 && k.every(x=>x.offsetTop===k[0].offsetTop) && b.scrollLeft>0 && r.left>=v.left && r.right<=v.right+1})()`));
+  await ev(S, "document.querySelector('.boxes').scrollLeft=0");
+  ok("ideias: no começo, a seta da direita funciona, e nenhuma cobre caixinha ou etiqueta", (await ate(S, `${apagada("document.querySelector('.slide')")} && ${pode("document.querySelector('.slide.next')")}`)) && (await ev(S, livres)));
+  await foto(S, "9d-celular-ideias-desliza");
+  await ev(S, "document.querySelector('.slide.next').click()");
+  ok("ideias: a seta leva até a caixinha de nova ideia, no fim", await ate(S, "document.querySelector('.slide.next').disabled && !document.querySelector('.slide').disabled && document.querySelector('.box.add').getBoundingClientRect().right<=document.querySelector('.boxes').getBoundingClientRect().right+1"));
+  ok("ideias: a página não rola para o lado", await semTransbordo(S));
+  ok("prateleira: sem erros no console", S.erros.length === 0, S.erros.join(" | "));
 
   // ================= 2. Nuvem =================
   console.log("\n— Nuvem: login —");
@@ -381,6 +453,35 @@ try {
   ok("computador envia sozinho depois de salvar", await sinc(B));
   await forcar(A);
   ok("celular recebe o estudo e a parte, na ordem de criação", JSON.stringify(await titulos(A)) === '["Estudo antes da conta","Criado no computador"]' && JSON.stringify(await titulos(A, "parts")) === '["Parte antiga","Parte nova do computador"]');
+  // ideia: guardada num aparelho, começada no outro
+  const ideia = await novaIdeia(A, "Ideia do celular");
+  await sinc(A); await forcar(B);
+  ok("ideia vai para a conta com o tipo próprio ('ideia') e chega ao outro aparelho", JSON.stringify(nomes("ana@teste.com", "ideia")) === '["Ideia do celular"]' && !nomes("ana@teste.com", "estudo").includes("Ideia do celular") && (await ev(B, `!!findIdea(${JSON.stringify(ideia)}) && state.ideas.length===1`)));
+  await ev(A, `openIdea(${JSON.stringify(ideia)})`);
+  await ev(B, `(()=>{openIdea(${JSON.stringify(ideia)});document.querySelector('[data-action=startIdea]').click();courseForm.elements.goal.value='Começar de verdade';courseForm.requestSubmit();})()`);
+  await sinc(B); await forcar(A);
+  ok("começada no computador: na nuvem sai das ideias e entra nos estudos; no celular também, e o formulário da ideia fecha", nomes("ana@teste.com", "ideia").length === 0 && nomes("ana@teste.com", "estudo").includes("Ideia do celular") && (await ev(A, "state.courses.some(c=>c.title==='Ideia do celular' && c.status==='active') && state.ideas.length===0 && !ideaDialog.open")));
+  await ev(B, `(()=>{selected=state.courses.find(c=>c.title==='Ideia do celular').id;page='detail';render();document.querySelector('[data-action=deleteCourse]').click();})()`);
+  await sinc(B); await forcar(A);
+  // tabela do Supabase ainda com a regra antiga (schema.sql novo ainda não rodado)
+  fake.semIdeia = true;
+  const cedo = await novaIdeia(A, "Antes do schema");
+  ok("tabela ainda sem o tipo 'ideia': avisa 'Não sincronizou' e a ideia fica guardada no aparelho", (await ate(A, "syncState==='error'")) && nomes("ana@teste.com", "ideia").length === 0 && (await ev(A, `!!findIdea(${JSON.stringify(cedo)}) && unsent() && document.getElementById('accountLabel').textContent==='Não sincronizou'`)));
+  fake.semIdeia = false;
+  ok("depois de rodar o schema.sql: a ideia sobe na tentativa seguinte", (await forcar(A)) && JSON.stringify(nomes("ana@teste.com", "ideia")) === '["Antes do schema"]');
+  // ideia guardada pela primeira versão da página: estudo na situação "idea", no aparelho e na base
+  const velha = await ev(A, `(()=>{const c={...state.courses[0],id:'velha',title:'Ideia velha',status:'idea',box:'',goal:'nota antiga',created:5},s=JSON.parse(localStorage.getItem(KEY)),n=JSON.parse(localStorage.getItem(CLOUD_KEY));s.ideas.length=0;delete s.ideas;s.courses.push(c);delete n.base.ideas;n.base.courses.push(c);localStorage.setItem(KEY,JSON.stringify(s));localStorage.setItem(CLOUD_KEY,JSON.stringify(n));return c})()`);
+  const ana = fake.users.get("ana@teste.com").id;
+  fake.rows.delete(`${ana}|ideia|${cedo}`);
+  fake.rows.set(`${ana}|estudo|velha`, { user_id: ana, tipo: "estudo", id: "velha", dados: jsonb(velha) });
+  await abrir(A);
+  await ate(A, "user"); await sinc(A);
+  ok("ideia da primeira versão: abre como ideia e sobe para a conta com o tipo próprio", JSON.stringify(nomes("ana@teste.com", "ideia")) === '["Ideia velha"]' && (await ev(A, `state.ideas.length===1 && canon(state.ideas[0])===canon(${JSON.stringify({ id: "velha", title: "Ideia velha", note: "nota antiga", box: "", image: "", created: 5 })}) && state.courses.every(c=>c.id!=='velha') && document.getElementById('warning').hidden`)), await ev(A, "JSON.stringify(state.ideas)"));
+  // a linha antiga (tipo 'estudo') é o schema.sql que troca de tipo ou apaga; o app só a ignora
+  ok("a linha antiga dela na nuvem não atrapalha: o app não a lê como estudo nem a apaga", fake.rows.has(`${ana}|estudo|velha`) && (await forcar(A)) && (await ev(A, "state.courses.every(c=>c.id!=='velha')")));
+  fake.rows.delete(`${ana}|estudo|velha`);
+  await ev(A, "(()=>{openIdea('velha');document.querySelector('[data-action=deleteIdea]').click();})()");
+  await sinc(A); await forcar(B);
   // edições simultâneas em coisas diferentes
   await ev(A, `(()=>{openCourse(${JSON.stringify(ja)});courseForm.elements.goal.value='Propósito mudado no celular';courseForm.requestSubmit();})()`);
   await ev(B, `(()=>{openCourse(${JSON.stringify(cb)});courseForm.elements.title.value='Renomeado no computador';courseForm.requestSubmit();})()`);
@@ -410,6 +511,26 @@ try {
   ok("ao fechar, o estudo guarda a folha em que a leitura parou", await ate(B, `!reader && findCourse(${JSON.stringify(ja)}).pdfPage===2`), await ev(B, `JSON.stringify([!!reader, findCourse(${JSON.stringify(ja)}).pdfPage, readerDialog.open])`));
   await sinc(B); await forcar(A);
   ok("e o outro aparelho recebe a folha", await ev(A, `findCourse(${JSON.stringify(ja)}).pdfPage===2`));
+  // leitor no celular em pé: margens cortadas, pinça e dois toques
+  await ev(A, `openReader(${JSON.stringify(ja)})`);
+  ok("no celular o leitor abre na folha em que a leitura parou", await ate(A, "reader?.doc && reader.page===2 && !readerCanvas.hidden && readerPage.textContent==='2 / 2'", 40000), await ev(A, "readerNote.textContent+' | '+readerPage.textContent"));
+  const medida = () => ev(A, "JSON.stringify({w:readerCanvas.clientWidth,h:readerCanvas.clientHeight,tela:readerBody.clientWidth,zoom:reader.zoom})").then(JSON.parse);
+  const m1 = await medida();
+  ok("celular em pé: as margens brancas são cortadas e o texto ocupa a largura da tela", m1.w > m1.tela - 16 && m1.w <= m1.tela && m1.w / m1.h > 3, JSON.stringify(m1));
+  // dedos de mentira: cada ponto é [x, y] na tela
+  await ev(A, "window.dedos=(tipo,pts,fim)=>{const ts=pts.map((p,i)=>new Touch({identifier:i,target:readerBody,clientX:p[0],clientY:p[1]}));readerBody.dispatchEvent(new TouchEvent(tipo,{touches:fim?[]:ts,changedTouches:ts,bubbles:true,cancelable:true}))}");
+  await ev(A, "(()=>{dedos('touchstart',[[150,300]]);dedos('touchstart',[[150,300],[250,300]]);dedos('touchmove',[[100,300],[300,300]]);dedos('touchend',[[100,300],[300,300]],true);})()");
+  ok("pinça com dois dedos amplia a folha (e ela é redesenhada no novo tamanho)", await ate(A, `Math.abs(reader.zoom-2)<0.01 && Math.abs(readerCanvas.clientWidth-${m1.w * 2})<4 && readerBody.scrollWidth>readerBody.clientWidth+50`), JSON.stringify(await medida()));
+  const toques = "(async()=>{for(let i=0;i<2;i++){dedos('touchstart',[[200,300]]);dedos('touchend',[[200,300]],true);await new Promise(f=>setTimeout(f,60));}})()";
+  await ev(A, toques);
+  ok("dois toques com a folha ampliada voltam ao tamanho da tela", await ate(A, `reader.zoom===1 && Math.abs(readerCanvas.clientWidth-${m1.w})<3`), JSON.stringify(await medida()));
+  await ev(A, toques);
+  ok("dois toques no tamanho da tela ampliam", await ate(A, `Math.abs(reader.zoom-2.4)<0.01 && readerCanvas.clientWidth>${m1.w * 2}`), JSON.stringify(await medida()));
+  await foto(A, "11-celular-leitor-ampliado");
+  await ev(A, "(()=>{dedos('touchstart',[[300,300]]);dedos('touchend',[[100,300]],true);})()");
+  ok("com a folha ampliada, arrastar o dedo não vira a folha", await ev(A, "reader.page===2"));
+  await ev(A, "readerDialog.close()");
+  await ate(A, "!reader");
   await ev(A, `openCourse(${JSON.stringify(ja)})`);
   await pdf(A, "outro.pdf");
   ok("trocar de PDF envia o novo", (await ate(A, "!pdfBusy && coursePdf.name==='outro.pdf'")) && fake.files.size === 2);
