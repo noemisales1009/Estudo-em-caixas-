@@ -22,7 +22,7 @@ const ok = (nome, cond, extra = "") => {
 const pausa = (ms) => new Promise((f) => setTimeout(f, ms));
 
 // ---------- Supabase de mentira ----------
-const fake = { users: new Map(), rows: new Map(), down: false, fora: false, marca: "", autoconfirm: true, cap: 1000, n: 0, writes: 0, reads: 0, real: 0 };
+const fake = { users: new Map(), rows: new Map(), files: new Map(), down: false, fora: false, marca: "", autoconfirm: true, cap: 1000, n: 0, writes: 0, reads: 0, real: 0 };
 const iso = new Date().toISOString();
 const b64u = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const json = (status, body, headers = {}) => ({ status, headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
@@ -39,11 +39,39 @@ function sessao(u) {
   u.tokens.add(token);
   return { access_token: token, token_type: "bearer", expires_in: 3600, expires_at: now + 3600, refresh_token: `r-${u.id}-${fake.n}`, user: pub(u) };
 }
+// Um PDF de verdade, pequeno, com duas folhas, para o leitor do app abrir.
+const PDF = (() => {
+  const fluxo = "BT /F1 24 Tf 40 100 Td (Folha de teste) Tj ET";
+  const folha = "<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 200]/Contents 5 0 R/Resources<</Font<</F1 6 0 R>>>>>>";
+  const objetos = ["<</Type/Catalog/Pages 2 0 R>>", "<</Type/Pages/Kids[3 0 R 4 0 R]/Count 2>>", folha, folha, `<</Length ${fluxo.length}>>\nstream\n${fluxo}\nendstream`, "<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>"];
+  let s = "%PDF-1.4\n";
+  const onde = objetos.map((o, i) => { const p = s.length; s += `${i + 1} 0 obj\n${o}\nendobj\n`; return p; });
+  const xref = s.length;
+  s += `xref\n0 ${objetos.length + 1}\n0000000000 65535 f \n${onde.map((p) => String(p).padStart(10, "0") + " 00000 n \n").join("")}trailer\n<</Size ${objetos.length + 1}/Root 1 0 R>>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(s, "latin1");
+})();
 const quem = (h) => { const t = (h.authorization || "").replace(/^Bearer /, ""); for (const u of fake.users.values()) if (u.tokens.has(t)) return u; return null; };
 const chave = (r) => `${r.user_id}|${r.tipo}|${r.id}`;
 function responder(method, url, h, body) {
-  const p = url.pathname, q = url.searchParams, dados = body ? JSON.parse(body) : {};
+  const p = url.pathname, q = url.searchParams;
   if (method === "OPTIONS") return { status: 204, headers: {} };
+  // Arquivos (Storage): cada conta só mexe na pasta que leva o próprio id, como nas regras do schema.sql.
+  const arq = p.match(/^\/storage\/v1\/object\/(sign\/)?eec-arquivos(?:\/(.*))?$/);
+  if (arq) {
+    const u = quem(h), caminho = decodeURIComponent(arq[2] || ""), meu = (c) => c.startsWith(u.id + "/");
+    // O link temporário dispensa a conta: quem tem o link baixa o arquivo (aqui, sempre o PDF de teste).
+    if (method === "GET" && arq[1]) return fake.files.has(caminho) && q.get("token") === "t" ? { status: 200, headers: { "Content-Type": "application/pdf" }, body: PDF } : json(400, { statusCode: "404", error: "not_found", message: "Object not found" });
+    if (!u) return json(400, { statusCode: "403", error: "Unauthorized", message: "invalid JWT" });
+    if (method === "POST" && !arq[1]) {
+      if (!meu(caminho)) return json(400, { statusCode: "403", error: "Unauthorized", message: "new row violates row-level security policy" });
+      if (body && !body.includes("application/pdf")) return json(400, { statusCode: "415", error: "invalid_mime_type", message: "mime type not supported" });
+      fake.files.set(caminho, (body || "").length);
+      return json(200, { Id: "arquivo-" + fake.files.size, Key: "eec-arquivos/" + caminho });
+    }
+    if (method === "POST") return meu(caminho) && fake.files.has(caminho) ? json(200, { signedURL: "/object/sign/eec-arquivos/" + caminho + "?token=t" }) : json(400, { statusCode: "404", error: "not_found", message: "Object not found" });
+    if (method === "DELETE") return json(200, (JSON.parse(body || "{}").prefixes || []).filter((c) => meu(c) && fake.files.delete(c)).map((name) => ({ name })));
+  }
+  const dados = body ? JSON.parse(body) : {};
   if (p === "/auth/v1/signup") {
     if (fake.users.has(dados.email)) return fake.autoconfirm ? json(422, { code: 422, error_code: "user_already_exists", msg: "User already registered" }) : json(200, { ...pub(fake.users.get(dados.email)), identities: [] });
     if ((dados.password || "").length < 6) return json(422, { code: 422, error_code: "weak_password", msg: "Password should be at least 6 characters." });
@@ -166,7 +194,11 @@ async function aba(nome, contexto, { width = 390, height = 780, mobile = true, d
       if (url.host !== FAKE) { fake.real++; return s("Fetch.failRequest", { requestId: p.requestId, errorReason: "BlockedByClient" }); }
       if (fake.down) return s("Fetch.failRequest", { requestId: p.requestId, errorReason: "InternetDisconnected" });
       let body = p.request.postData;
-      if (body === undefined && p.request.hasPostData) body = Buffer.from((await s("Fetch.getRequestPostData", { requestId: p.requestId })).postData, "utf8").toString();
+      if (body === undefined && p.request.hasPostData) {
+        // O corpo de um envio de arquivo vem em base64; se o Chrome não o entregar, segue sem ele.
+        const c = await s("Fetch.getRequestPostData", { requestId: p.requestId }).catch(() => ({ postData: "" }));
+        body = Buffer.from(c.postData, c.base64Encoded ? "base64" : "utf8").toString(c.base64Encoded ? "latin1" : "utf8");
+      }
       const h = Object.fromEntries(Object.entries(p.request.headers).map(([k, v]) => [k.toLowerCase(), v]));
       let r;
       try { r = responder(p.request.method, url, h, body); } catch (e) { r = json(500, { message: String(e.message) }); d.erros.push("servidor de teste: " + e.message); }
@@ -246,18 +278,18 @@ try {
   await ev(L, `(()=>{openSession(${JSON.stringify(c1)});sessionForm.elements.minutes.value=30;sessionForm.elements.learned.value='variáveis';sessionForm.elements.nextStep.value='aula 2';sessionForm.requestSubmit();openCompletion(${JSON.stringify(p1)});completionForm.elements.learned.value='entendi';completionForm.requestSubmit();})()`);
   ok("cria estudo, partes, sessão e conclui parte", await ev(L, "state.courses.length===1 && state.parts.length===2 && state.sessions.length===1 && state.parts[0].done"));
   ok("novos itens ganham data de criação", await ev(L, "state.courses.every(c=>c.created>1e12) && state.parts.every(p=>p.created>1e12)"));
-  for (const pg of ["home", "agenda", "studies", "review", "backup"]) {
+  for (const pg of ["studies", "agenda", "review", "backup"]) {
     await ev(L, `document.querySelector('nav [data-page=${pg}]').click()`);
     ok(`celular: tela ${pg} sem rolagem lateral`, await semTransbordo(L));
   }
   ok("celular: menu fica fixo embaixo, com ícones", await ev(L, "getComputedStyle(document.querySelector('.top nav')).position==='fixed' && getComputedStyle(document.querySelector('.top nav .icon')).display==='block'"));
-  ok("celular: rótulos curtos no menu", (await ev(L, "[...document.querySelectorAll('nav button')].map(b=>b.innerText.trim()).join('|')")) === "Painel|Agenda|Estudos|Revisão|Ajuda");
-  await ev(L, "document.querySelector('nav [data-page=home]').click()");
-  await foto(L, "1-celular-claro-painel");
+  ok("celular: rótulos curtos no menu", (await ev(L, "[...document.querySelectorAll('nav button')].map(b=>b.innerText.trim()).join('|')")) === "Estante|Agenda|Revisão|Ajuda");
   await ev(L, "document.querySelector('nav [data-page=studies]').click()");
-  await foto(L, "2-celular-claro-estudos");
+  await foto(L, "2-celular-claro-estante");
+  ok("estante: uma prateleira por caixa, e em cada uma a caixinha de novo estudo", await ev(L, "document.querySelectorAll('.shelf').length===3 && document.querySelectorAll('.shelf .box.add .carton').length===3"));
+  ok("estudo em andamento aparece como caixinha aberta", await ev(L, "document.querySelectorAll('.shelf.season article.box:not(.shut) .carton').length===1 && !document.querySelector('.box.shut')"));
   await ev(L, `document.querySelector('[data-action=open]').click()`);
-  ok("ao abrir um estudo, 'Estudos' fica marcado no menu", await ev(L, "document.querySelector('nav [aria-current=page]').dataset.page==='studies'"));
+  ok("ao abrir um estudo, 'Estante' fica marcado no menu", await ev(L, "document.querySelector('nav [aria-current=page]').dataset.page==='studies'"));
   await foto(L, "3-celular-claro-estudo");
   await ev(L, "document.querySelector('[data-action=newPart]').click()");
   ok("celular: formulário abre como folha colada embaixo, na largura toda", await ev(L, "(()=>{const r=partDialog.getBoundingClientRect();return Math.abs(r.bottom-innerHeight)<2 && Math.abs(r.width-innerWidth)<2})()"));
@@ -272,8 +304,19 @@ try {
   ok("botão troca para o modo escuro", (await ev(L, "document.documentElement.dataset.theme")) === "dark" && fundoClaro !== fundoEscuro, `${fundoClaro} -> ${fundoEscuro}`);
   ok("no escuro, cartões e campos deixam de ser brancos", await ev(L, "![...document.querySelectorAll('.card,.panel,.stat,button,header')].some(e=>getComputedStyle(e).backgroundColor==='rgb(255, 255, 255)')"));
   await foto(L, "5-celular-escuro-estudo");
-  await ev(L, "document.querySelector('nav [data-page=home]').click()");
-  await foto(L, "6-celular-escuro-painel");
+  // material, imagem e caixinha fechada
+  const jpg = await ev(L, "(()=>{const c=document.createElement('canvas');c.width=c.height=40;c.getContext('2d').fillRect(0,0,40,40);return c.toDataURL('image/jpeg',.8)})()");
+  await ev(L, `(()=>{openCourse(${JSON.stringify(c1)});courseForm.elements.material.value=' Livro de JS ';showImage(${JSON.stringify(jpg)});courseForm.requestSubmit();})()`);
+  ok("estudo guarda o nome do material e a imagem", await ev(L, `state.courses[0].material==='Livro de JS' && state.courses[0].image===${JSON.stringify(jpg)}`));
+  ok("a imagem vai para a etiqueta da caixinha e para a tela do estudo", await ev(L, "!!document.querySelector('img.cover') && /Material: Livro de JS/.test(document.querySelector('.linkrow').textContent)"));
+  ok("imagem fora do padrão é recusada na importação", await ev(L, "(()=>{try{validate({...state,courses:[{...state.courses[0],image:'data:text/html;base64,AAAA'}]});return false}catch(e){return true}})()"));
+  await ev(L, "document.querySelector('[data-action=finishCourse]').click()");
+  ok("concluir o estudo fecha a caixinha na estante", await ev(L, "page==='studies' && state.courses[0].status==='finished' && document.querySelectorAll('.box.shut image').length===1"));
+  await foto(L, "6-celular-escuro-estante");
+  await ev(L, "document.querySelector('.box.shut [data-action=open]').click()");
+  ok("tocar na caixinha fechada: ela abre e só depois mostra o estudo", (await ev(L, "page==='studies' && !!document.querySelector('.box.shut.opening')")) && (await ate(L, "page==='detail'")));
+  await ev(L, "document.querySelector('[data-action=reopenCourse]').click()");
+  ok("reabrir a caixa devolve o estudo ao andamento", await ev(L, "state.courses[0].status==='active'"));
   await abrir(L, "?modo=local");
   ok("tema escolhido e dados continuam depois de recarregar", await ev(L, "document.documentElement.dataset.theme==='dark' && state.courses.length===1 && state.parts.length===2 && state.sessions.length===1"));
   ok("cor da barra do navegador acompanha o tema", (await ev(L, "document.querySelector('meta[name=theme-color]').content")) === "#1b221f");
@@ -289,7 +332,7 @@ try {
   ok("segue o sistema: abre no escuro sem ninguém escolher", await ev(D, "document.documentElement.dataset.theme==='dark'"));
   ok("dados no formato antigo abrem e mantêm a ordem", JSON.stringify(await titulos(D, "parts")) === '["Parte Z","Parte Y"]' && (await ev(D, "state.parts.map(p=>p.created).join()")) === "1,2");
   ok("computador: menu no topo, só texto", await ev(D, "getComputedStyle(document.querySelector('.top nav')).position!=='fixed' && getComputedStyle(document.querySelector('.top nav .icon')).display==='none' && document.querySelector('nav [data-page=agenda]').innerText.trim()==='Minha agenda'"));
-  await foto(D, "7-computador-escuro-painel");
+  await foto(D, "7-computador-escuro-estante");
   await ev(D, "document.querySelector('nav [data-page=studies]').click()");
   await foto(D, "8-computador-escuro-estudos");
   await ev(D, "document.getElementById('themeButton').click()");
@@ -344,6 +387,42 @@ try {
   await sinc(A); await sinc(B); await forcar(A); await forcar(B);
   const fim = (d) => ev(d, "JSON.stringify(state.courses.map(c=>[c.title,c.goal]))");
   ok("edições ao mesmo tempo em estudos diferentes: as duas ficam", (await fim(A)) === (await fim(B)) && /Propósito mudado no celular/.test(await fim(A)) && /Renomeado no computador/.test(await fim(A)), await fim(A));
+  // PDF do estudo: o arquivo vai para o Storage, na pasta da conta
+  const pdf = (d, nome) => ev(d, `(()=>{const t=new DataTransfer();t.items.add(new File(["%PDF-1.4 teste"],${JSON.stringify(nome)},{type:""}));pdfInput.files=t.files;pdfInput.dispatchEvent(new Event("change"));})()`);
+  const espere = async (f, ms = 5000) => { for (const fim = Date.now() + ms; Date.now() < fim; await pausa(50)) if (f()) return true; return false; };
+  const dono = await ev(A, "user.id");
+  await ev(A, `openCourse(${JSON.stringify(ja)})`);
+  await pdf(A, "apostila.pdf");
+  ok("PDF escolhido sobe para a pasta da conta, marcado como PDF", (await ate(A, "!pdfBusy && coursePdf.path")) && fake.files.size === 1 && [...fake.files.keys()][0].startsWith(dono + "/"), [...fake.files.keys()].join());
+  await ev(A, "courseForm.requestSubmit()");
+  await sinc(A); await forcar(B);
+  ok("o estudo guarda o caminho e o nome do PDF, e o outro aparelho recebe", await ev(B, `(()=>{const c=findCourse(${JSON.stringify(ja)});return c.pdfName==="apostila.pdf" && fake0===c.pdf})()`.replace("fake0", JSON.stringify([...fake.files.keys()][0]))));
+  await ev(B, `(()=>{selected=${JSON.stringify(ja)};page="detail";render();window.open=()=>({location:{replace:(u)=>(window.__pdf=u)},close(){}});document.querySelector("[data-action=openPdf]").click();})()`);
+  ok("abrir o PDF no outro aparelho pede um link temporário à conta", await ate(B, "(window.__pdf||'').includes('/object/sign/eec-arquivos/') && window.__pdf.endsWith('.pdf?token=t')"), await ev(B, "window.__pdf"));
+  // leitor de PDF dentro do app
+  await ev(B, "document.querySelector('[data-action=readPdf]').click()");
+  ok("o leitor abre o PDF dentro do app e desenha a primeira folha", await ate(B, "readerDialog.open && reader?.doc?.numPages===2 && !readerCanvas.hidden && readerCanvas.width>200 && readerPage.textContent==='1 / 2'", 40000), await ev(B, "readerNote.textContent+' | '+readerPage.textContent"));
+  ok("a folha tem tinta (não ficou em branco)", await ev(B, "(()=>{const c=readerCanvas,d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;for(let i=0;i<d.length;i+=4)if(d[i]<90&&d[i+3]>200)return true;return false})()"));
+  await foto(B, "10-computador-leitor-de-pdf");
+  await ev(B, "document.querySelector('[data-action=readerNext]').click()");
+  ok("passa para a folha seguinte", await ate(B, "readerPage.textContent==='2 / 2' && reader.task && !readerNote.hidden===false"));
+  await ev(B, "readerDialog.close()");
+  ok("ao fechar, o estudo guarda a folha em que a leitura parou", await ate(B, `!reader && findCourse(${JSON.stringify(ja)}).pdfPage===2`), await ev(B, `JSON.stringify([!!reader, findCourse(${JSON.stringify(ja)}).pdfPage, readerDialog.open])`));
+  await sinc(B); await forcar(A);
+  ok("e o outro aparelho recebe a folha", await ev(A, `findCourse(${JSON.stringify(ja)}).pdfPage===2`));
+  await ev(A, `openCourse(${JSON.stringify(ja)})`);
+  await pdf(A, "outro.pdf");
+  ok("trocar de PDF envia o novo", (await ate(A, "!pdfBusy && coursePdf.name==='outro.pdf'")) && fake.files.size === 2);
+  await ev(A, "courseDialog.close()");
+  ok("desistir do formulário descarta o PDF que tinha acabado de subir e mantém o do estudo", (await espere(() => fake.files.size === 1)) && (await ev(A, `fake0===findCourse(${JSON.stringify(ja)}).pdf`.replace("fake0", JSON.stringify([...fake.files.keys()][0])))));
+  fake.down = true;
+  await ev(A, `(()=>{openCourse(${JSON.stringify(ja)});document.getElementById("clearPdf").click();courseForm.requestSubmit();})()`);
+  await pausa(300);
+  ok("tirar o PDF sem internet: o pedido de apagar fica anotado no aparelho", fake.files.size === 1 && (await ev(A, `cloud.trash.length===1 && findCourse(${JSON.stringify(ja)}).pdf==="" && JSON.parse(localStorage.getItem(CLOUD_KEY)).trash.length===1`)));
+  fake.down = false;
+  await forcar(A);
+  ok("a internet volta: o arquivo sai da conta", (await espere(() => fake.files.size === 0)) && (await ate(A, "cloud.trash.length===0")));
+  await forcar(B);
   // exclusão
   await ev(B, `document.querySelector('nav [data-page=studies]').click()`);
   await ev(A, `(()=>{selected=${JSON.stringify(cb)};page='detail';render();openPart(${JSON.stringify(cb)});})()`);

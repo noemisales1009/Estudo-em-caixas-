@@ -11,6 +11,8 @@ Entrando com a mesma conta no celular e no computador, eles aparecem nos dois.
 Ao sair da conta, os estudos saem do aparelho e continuam guardados na conta.
 O backup JSON, em Backup e ajuda, continua disponível. É por ele que se trazem
 os registros da versão antiga do app: exporte lá e use Importar backup aqui.
+A imagem de um estudo vai junto com ele (na conta e no backup). O arquivo PDF
+fica guardado só na conta: o backup leva o nome dele, não o arquivo.
 
 SEM INTERNET
 Um aparelho que já entrou na conta continua funcionando sem internet: o que
@@ -26,15 +28,21 @@ O botão de lua/sol no topo troca o tema. Sem escolha, o app segue o tema do
 aparelho. A escolha vale só para o aparelho em que foi feita.
 
 FUNCIONAMENTO
-Links de materiais precisam de conexão.
+Links de materiais precisam de conexão. Enviar e ler PDF também.
+O PDF abre num leitor dentro do app (botão Ler PDF, na tela do estudo), que
+guarda a folha em que a leitura parou; ela vale em todos os aparelhos da conta.
 Lembretes exigem o app aberto e suporte/permissão do navegador.
 Com o navegador fechado ou suspenso, use também o alarme do celular.
 
 PARA QUEM MANTÉM O APP
-supabase/schema.sql cria a tabela e as regras de acesso no Supabase.
+supabase/schema.sql cria a tabela, o espaço dos PDFs (Storage) e as regras de
+acesso no Supabase. Cole o arquivo inteiro no SQL Editor e rode; pode repetir.
 O endereço e a chave pública do projeto ficam no começo do script, em
 index.html; o endereço aparece também na linha Content-Security-Policy.
 Nunca coloque no app a chave secreta (service_role) do Supabase.
+O leitor de PDF usa a biblioteca PDF.js, baixada do CDN só quando alguém abre um
+PDF. A versão e os hashes dela ficam em index.html (PDFJS), e o endereço aparece
+também na linha Content-Security-Policy.
 Para o app abrir sem internet, publique junto com o index.html, na mesma
 pasta: sw.js, manifest.webmanifest e a pasta icones. O endereço precisa ser
 https.

@@ -33,7 +33,24 @@ drop trigger if exists eec_itens_tocar on public.eec_itens;
 create trigger eec_itens_tocar before update on public.eec_itens
   for each row execute function public.eec_tocar();
 
+-- Arquivos PDF dos estudos: um espaço fechado (não público), só para PDF, até 50 MB por arquivo.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('eec-arquivos', 'eec-arquivos', false, 52428800, array['application/pdf'])
+on conflict (id) do update
+  set public = false,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+-- Cada pessoa só enxerga e altera os arquivos da própria pasta, que leva o id da conta dela.
+drop policy if exists eec_arquivos_dono on storage.objects;
+create policy eec_arquivos_dono on storage.objects
+  for all to authenticated
+  using (bucket_id = 'eec-arquivos' and (storage.foldername(name))[1] = (select auth.uid())::text)
+  with check (bucket_id = 'eec-arquivos' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
 select
   'eec_itens pronta' as resultado,
   (select relrowsecurity from pg_class where oid = 'public.eec_itens'::regclass) as protecao_ligada,
-  (select count(*) from pg_policies where schemaname = 'public' and tablename = 'eec_itens') as regras;
+  (select count(*) from pg_policies where schemaname = 'public' and tablename = 'eec_itens') as regras,
+  (select count(*) from storage.buckets where id = 'eec-arquivos' and not public) as espaco_de_pdf,
+  (select count(*) from pg_policies where schemaname = 'storage' and policyname = 'eec_arquivos_dono') as regra_dos_pdfs;

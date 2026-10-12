@@ -1,0 +1,10 @@
+{
+  "name": "estudo-em-caixas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Estudo em Caixas — horário, progresso e propósito para os seus estudos.",
+  "scripts": {
+    "dev": "node servidor.mjs",
+    "test": "node testes/teste.mjs"
+  }
+}

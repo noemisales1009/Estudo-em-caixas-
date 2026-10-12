@@ -2,11 +2,12 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <!-- Trava do navegador: a página só carrega código dela mesma e da biblioteca do Supabase,
-         e só conversa com o projeto do Supabase. Ao trocar de projeto, troque o endereço aqui também. -->
+    <!-- Trava do navegador: a página só carrega código dela mesma, da biblioteca do Supabase e da
+         biblioteca que lê PDF (numa versão exata), e só conversa com o projeto do Supabase e com o
+         endereço dessa biblioteca. Ao trocar de projeto, troque o endereço aqui também. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/@supabase/; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self' https://cbijxuiqmiodzfthuuqn.supabase.co; base-uri 'none'; form-action 'none'"
+      content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/@supabase/ https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self' blob:; connect-src 'self' https://cbijxuiqmiodzfthuuqn.supabase.co https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/; font-src https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/; base-uri 'none'; form-action 'none'"
     />
     <meta
       name="viewport"
@@ -53,6 +54,20 @@
         --lav: #ede8fa;
         --mint: #e2eee5;
         --peach: #faead9;
+        --lav-lid: #c9bdf0;
+        --mint-lid: #b3d3bd;
+        --peach-lid: #ecc59b;
+        --wood-back: #ead9bd;
+        --wood-light: #dcb98a;
+        --wood: #c9a06c;
+        --wood-edge: #a57c4d;
+        --wood-frame: #b88f5d;
+        --kraft: #dcaa6f;
+        --kraft-side: #bd894f;
+        --kraft-top: #edc893;
+        --kraft-in: #8b6035;
+        --kraft-line: #7a5230;
+        --label: #fbf4e4;
         --chip: #eef1ec;
         --track: #e5eae4;
         --note: #edf2ed;
@@ -84,6 +99,20 @@
         --lav: #2b2843;
         --mint: #1f352c;
         --peach: #3b2e20;
+        --lav-lid: #4d4682;
+        --mint-lid: #34604d;
+        --peach-lid: #6e5331;
+        --wood-back: #29221a;
+        --wood-light: #7a5e41;
+        --wood: #6a5036;
+        --wood-edge: #4a3725;
+        --wood-frame: #56412c;
+        --kraft: #c6965f;
+        --kraft-side: #a37542;
+        --kraft-top: #d9b17c;
+        --kraft-in: #6c4927;
+        --kraft-line: #4a301a;
+        --label: #efe4cd;
         --chip: #29332e;
         --track: #2c3732;
         --note: #1e2a25;
@@ -177,10 +206,10 @@
         outline-offset: 3px;
       }
       h1 {
-        font-size: clamp(30px, 5vw, 44px);
+        font-size: clamp(26px, 4vw, 36px);
         line-height: 1.15;
-        letter-spacing: -1.2px;
-        margin: 10px 0 15px;
+        letter-spacing: -0.8px;
+        margin: 0 0 12px;
       }
       h2 {
         font-size: 23px;
@@ -251,6 +280,17 @@
         background: var(--mint);
         font-weight: 700;
       }
+      /* Bolinha com o número de revisões que já venceram. */
+      .top nav button[data-count]::after {
+        content: attr(data-count);
+        margin-left: 6px;
+        padding: 1px 6px;
+        border-radius: 10px;
+        background: var(--primary);
+        color: var(--on-primary);
+        font-size: 11px;
+        font-weight: 700;
+      }
       .top nav .icon,
       .short {
         display: none;
@@ -314,6 +354,11 @@
       .hero p {
         max-width: 650px;
       }
+      .hero h1:last-child,
+      .hero p:last-child,
+      .hero.inline h1 {
+        margin-bottom: 0;
+      }
       .heroactions {
         display: grid;
         gap: 8px;
@@ -349,27 +394,290 @@
         font-size: 12px;
         color: var(--soft);
       }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 18px;
+      /* Estante: cada caixa do método é uma prateleira e cada estudo é uma caixinha de papelão
+         sobre ela, aberta enquanto o estudo anda e fechada depois de concluído. As tábuas são
+         desenhadas no fundo, uma a cada --row de altura; por isso as fileiras têm altura fixa. O
+         texto de cada caixinha vem logo abaixo dela, numa faixa de altura --strip, e é essa altura
+         igual para todas que mantém as caixinhas de uma fileira alinhadas. */
+      .bookcase {
+        border: solid var(--wood-frame);
+        border-width: 12px 10px 0;
+        border-radius: 14px 14px 6px 6px;
+        background:
+          repeating-linear-gradient(90deg, transparent 0 139px, #0000000d 139px 140px),
+          var(--wood-back);
+        box-shadow:
+          inset 5px 0 6px -4px #00000033,
+          inset -5px 0 6px -4px #00000033,
+          0 10px 22px -14px #00000080;
+        overflow: hidden;
       }
-      .column {
-        background: var(--mint);
-        padding: 20px;
-        border-radius: 19px;
-        min-width: 0;
+      .shelf {
+        --lid: var(--mint-lid);
+        position: relative;
       }
-      .column.season {
-        background: var(--lav);
+      .shelf.season {
+        --lid: var(--lav-lid);
       }
-      .column.sand {
-        background: var(--peach);
+      .shelf.sand {
+        --lid: var(--peach-lid);
       }
-      .column p.description {
+      /* O nome da prateleira é uma etiqueta pendurada na tábua de cima. */
+      .shelf h2 {
+        position: absolute;
+        top: 0;
+        left: 14px;
+        margin: 0;
+        padding: 3px 12px 4px;
+        border-radius: 0 0 9px 9px;
+        background: var(--lid);
+        box-shadow: 0 2px 4px #00000033;
         font-size: 13px;
-        color: var(--soft);
-        min-height: 42px;
+        line-height: 18px;
+      }
+      .boxes {
+        --strip: 127px;
+        --row: 323px;
+        display: grid;
+        min-height: var(--row);
+        grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+        grid-auto-rows: var(--row);
+        padding: 0 6px;
+        background:
+          linear-gradient(#00000030, transparent 12px) 0 0 / 100% var(--row),
+          linear-gradient(
+              transparent calc(var(--row) - 18px),
+              var(--wood-light) calc(var(--row) - 18px) calc(var(--row) - 16px),
+              var(--wood) calc(var(--row) - 16px) calc(var(--row) - 7px),
+              var(--wood-edge) calc(var(--row) - 7px)
+            )
+            0 0 / 100% var(--row);
+      }
+      .box {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        min-width: 0;
+        padding: 0 8px 18px;
+      }
+      .box.idle > * {
+        opacity: 0.6;
+      }
+      .about {
+        width: 100%;
+        height: var(--strip);
+        padding-top: 4px;
+        overflow: hidden;
+        text-align: center;
+      }
+      .about .badge {
+        display: block;
+        width: fit-content;
+        margin: 0 auto 3px;
+        padding: 1px 7px;
+        font-size: 10.5px;
+        line-height: 15px;
+      }
+      .box h3 {
+        margin: 0;
+        font-size: 14px;
+        line-height: 19px;
+      }
+      /* O nome do estudo é o botão; a área de toque dele cobre a caixinha inteira. */
+      .cardlink {
+        display: block;
+        width: 100%;
+        min-height: 0;
+        border: 0;
+        padding: 0;
+        background: none;
+        text-align: inherit;
+      }
+      .cardlink::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 8px;
+      }
+      .cardlink:active {
+        transform: none;
+      }
+      .cardlink:focus-visible {
+        outline: 0;
+      }
+      .cardlink:focus-visible::after {
+        outline: 2px solid var(--green);
+        outline-offset: 3px;
+      }
+      .cardlink span,
+      .resume {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+      }
+      .meter {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin: 6px 0 5px;
+        font-size: 11px;
+        line-height: 14px;
+      }
+      .meter .progress {
+        flex: 1;
+        margin: 0;
+        background: var(--wood-light);
+      }
+      .resume {
+        margin: 0;
+        font-size: 12px;
+        line-height: 16px;
+      }
+      /* A caixinha vazia no fim de cada prateleira guarda o lugar do próximo estudo. */
+      .box.add {
+        border: 0;
+        border-radius: 8px;
+        background: none;
+      }
+      /* Ela aparece só em contorno, com um "+", para não se confundir com um estudo de verdade. */
+      .add .carton {
+        width: min(72%, 124px);
+      }
+      .add .carton path {
+        fill: var(--wood-back);
+        stroke: var(--soft);
+      }
+      .add .carton rect,
+      .add .k-shadow {
+        display: none;
+      }
+      .add .carton .k-ink {
+        stroke-width: 3;
+        opacity: 1;
+      }
+      .add .about,
+      .add small {
+        display: block;
+      }
+      .add small {
+        margin-top: 4px;
+        font-size: 12px;
+        line-height: 16px;
+      }
+      /* O desenho da caixinha. As abas (k-flap) e a tampa com fita (k-shut) estão sempre no
+         desenho; aberta ou fechada, muda só qual das duas aparece. Por isso a troca é animada. */
+      .carton {
+        flex: none;
+        width: min(100%, 176px);
+        overflow: visible;
+        transition: transform 0.2s;
+      }
+      .k-shadow {
+        fill: #00000033;
+      }
+      .carton path,
+      .carton rect {
+        stroke: var(--kraft-line);
+        stroke-width: 1.5;
+        stroke-linejoin: round;
+      }
+      .k-front {
+        fill: var(--kraft);
+      }
+      .k-side {
+        fill: var(--kraft-side);
+      }
+      .k-top,
+      .k-flap {
+        fill: var(--kraft-top);
+      }
+      .k-in {
+        fill: var(--kraft-in);
+      }
+      .k-label {
+        fill: var(--label);
+      }
+      .k-tape,
+      .k-mark {
+        fill: var(--lid);
+      }
+      .carton .k-mark {
+        stroke: none;
+      }
+      .carton .k-ink {
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        opacity: 0.45;
+      }
+      .k-frame {
+        fill: none;
+      }
+      .k-flap {
+        transform-box: fill-box;
+        transition: transform 0.4s cubic-bezier(0.3, 1.5, 0.5, 1);
+      }
+      .k-back {
+        transform-origin: 50% 100%;
+      }
+      .k-fore {
+        transform-origin: 50% 0;
+      }
+      .k-left {
+        transform-origin: 71% 70%;
+      }
+      .k-right {
+        transform-origin: 27% 38%;
+      }
+      .k-in,
+      .k-shut {
+        transition: opacity 0.25s;
+      }
+      .k-shut,
+      .shut .k-in {
+        opacity: 0;
+      }
+      .shut .k-shut {
+        opacity: 1;
+      }
+      .shut .k-back,
+      .shut .k-fore {
+        transform: scaleY(0);
+      }
+      .shut .k-left,
+      .shut .k-right {
+        transform: scale(0);
+      }
+      /* Ao tocar numa caixinha fechada, ela abre antes de mostrar o estudo. */
+      .shut.opening .k-shut {
+        opacity: 0;
+      }
+      .shut.opening .k-in {
+        opacity: 1;
+      }
+      .shut.opening .k-flap {
+        transform: none;
+      }
+      @keyframes shake {
+        25% {
+          transform: translateY(-3px) rotate(-4deg);
+        }
+        75% {
+          transform: translateY(-3px) rotate(4deg);
+        }
+      }
+      /* A imagem do estudo aparece inteira, sem cortar as bordas. */
+      .cover {
+        display: block;
+        max-width: min(100%, 240px);
+        max-height: 130px;
+        margin-bottom: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
       }
       .card {
         background: var(--surface);
@@ -403,6 +711,13 @@
       .badge.overdue {
         color: var(--overdue);
         background: var(--overdue-bg);
+      }
+      .badge.today {
+        color: var(--on-primary);
+        background: var(--primary);
+      }
+      .badge + h1 {
+        margin-top: 10px;
       }
       .progress {
         height: 7px;
@@ -448,12 +763,6 @@
         justify-content: space-between;
         gap: 15px;
       }
-      .two {
-        display: grid;
-        grid-template-columns: 1.35fr 1fr;
-        gap: 18px;
-        margin-top: 22px;
-      }
       .note {
         background: var(--note);
         border-left: 3px solid var(--green);
@@ -473,6 +782,16 @@
       }
       .agenda-day {
         margin: 25px 0;
+      }
+      .agenda-day:first-child {
+        margin-top: 0;
+      }
+      .agenda-day:last-child {
+        margin-bottom: 0;
+      }
+      .agenda-day:last-child .slot:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
       }
       .agenda-day h2 {
         font-size: 18px;
@@ -546,6 +865,23 @@
       .days input {
         margin-right: 5px;
       }
+      .imagerow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .imagerow img {
+        max-width: 140px;
+        max-height: 70px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      .imagerow b {
+        min-width: 0;
+        font-size: 13px;
+        overflow-wrap: anywhere;
+      }
       .error {
         color: var(--error);
         font-size: 13px;
@@ -581,6 +917,56 @@
         align-items: center;
         gap: 12px;
         flex-wrap: wrap;
+      }
+      /* Leitor de PDF: uma janela que toma quase a tela toda, com a folha no meio. */
+      dialog.reader {
+        width: min(1000px, calc(100% - 24px));
+        height: calc(100% - 24px);
+        max-height: none;
+        padding: 0;
+        overflow: hidden;
+      }
+      dialog.reader[open] {
+        display: flex;
+        flex-direction: column;
+      }
+      .readerbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .readerbar b {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .readerbar span {
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .readerbar button {
+        min-width: 38px;
+        padding: 5px 10px;
+        font-size: 18px;
+        line-height: 1.2;
+      }
+      .readerbody {
+        flex: 1;
+        padding: 12px;
+        background: var(--bg);
+        overflow: auto;
+        overscroll-behavior: contain;
+        text-align: center;
+      }
+      .readerbody canvas {
+        display: block;
+        margin: 0 auto;
+        background: #fff;
+        box-shadow: 0 2px 10px #00000040;
       }
       .info {
         max-width: 850px;
@@ -645,12 +1031,40 @@
         button:hover {
           border-color: var(--green);
         }
+        /* Ao passar o mouse, a caixinha dá um pulinho: a aberta mexe as abas, a fechada chacoalha. */
+        .box:hover .carton {
+          transform: translateY(-3px);
+        }
+        .box:not(.shut):hover .k-back {
+          transform: scaleY(1.15);
+        }
+        .box:not(.shut):hover .k-fore {
+          transform: scaleY(1.3);
+        }
+        .box:not(.shut):hover .k-left {
+          transform: rotate(-10deg);
+        }
+        .box:not(.shut):hover .k-right {
+          transform: rotate(10deg);
+        }
+        .shut:not(.opening):hover .carton {
+          animation: shake 0.45s;
+        }
       }
       @media (prefers-reduced-motion: reduce) {
-        #accountButton::after {
+        #accountButton::after,
+        .carton {
           animation: none !important;
         }
-        button:active {
+        .carton,
+        .k-flap,
+        .k-in,
+        .k-shut {
+          transition: none;
+        }
+        button:active,
+        .box:hover .carton,
+        .box:not(.shut):hover .k-flap {
           transform: none;
         }
       }
@@ -671,15 +1085,6 @@
         }
       }
       @media (max-width: 950px) {
-        .grid {
-          grid-template-columns: 1fr;
-        }
-        .column p.description {
-          min-height: 0;
-        }
-        .two {
-          grid-template-columns: 1fr;
-        }
         .top {
           flex-wrap: wrap;
           row-gap: 10px;
@@ -711,6 +1116,7 @@
             max(6px, env(safe-area-inset-left));
         }
         .top nav button {
+          position: relative;
           flex: 1;
           min-width: 0;
           display: flex;
@@ -721,6 +1127,12 @@
           font-size: 11px;
           border-radius: 12px;
           color: var(--soft);
+        }
+        .top nav button[data-count]::after {
+          position: absolute;
+          top: 2px;
+          left: calc(50% + 4px);
+          margin: 0;
         }
         .top nav button[aria-current="page"] {
           color: var(--green);
@@ -762,8 +1174,7 @@
           height: 36px;
         }
         h1 {
-          font-size: 28px;
-          letter-spacing: -0.8px;
+          font-size: 26px;
         }
         h2 {
           font-size: 20px;
@@ -776,6 +1187,17 @@
         .heroactions,
         .hero > button {
           width: 100%;
+        }
+        .hero.inline {
+          flex-direction: row;
+          align-items: center;
+        }
+        .hero.inline > button {
+          width: auto;
+        }
+        /* No celular, sempre duas caixinhas por fileira. */
+        .boxes {
+          grid-template-columns: 1fr 1fr;
         }
         .stats {
           grid-template-columns: 1fr 1fr;
@@ -798,8 +1220,7 @@
         .slot .time {
           font-size: 13px;
         }
-        .panel,
-        .column {
+        .panel {
           padding: 18px;
         }
         .panelhead {
@@ -819,6 +1240,21 @@
           margin: auto 0 0;
           border-radius: 20px 20px 0 0;
           padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+        }
+        /* No celular o leitor ocupa a tela inteira, e o nome do arquivo ganha uma linha só dele. */
+        dialog.reader {
+          height: 100%;
+          max-height: 100dvh;
+          margin: 0;
+          border-radius: 0;
+          padding: 0;
+        }
+        .readerbar {
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .readerbar b {
+          flex: 1 1 100%;
         }
       }
       @media (max-width: 560px) {
@@ -893,13 +1329,23 @@
   <body>
     <header>
       <div class="top">
-        <div class="brand"><span class="mark" aria-hidden="true">▤</span> Estudo em Caixas</div>
-        <nav aria-label="Navegação">
-          <button data-page="home" aria-current="page">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
+        <div class="brand">
+          <span class="mark" aria-hidden="true">
+            <svg class="icon" viewBox="0 0 24 24">
+              <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7 12 12l8.7-5M12 22V12M16.5 9.4l-9-5.2"
+              />
             </svg>
-            <span>Painel</span>
+          </span>
+          Estudo em Caixas
+        </div>
+        <nav aria-label="Navegação">
+          <button data-page="studies" aria-current="page">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 3v18M20 3v18M4 8h16M4 14h16M4 20h16" />
+              <path d="M7 4.5h3V8H7zM14 10.5h3V14h-3z" />
+            </svg>
+            <span>Estante</span>
           </button>
           <button data-page="agenda">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -907,14 +1353,6 @@
               <path d="M3 10h18M8 3v4M16 3v4" />
             </svg>
             <span class="full">Minha agenda</span><span class="short">Agenda</span>
-          </button>
-          <button data-page="studies">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3" y="3" width="8" height="8" rx="1.5" />
-              <rect x="13" y="3" width="8" height="8" rx="1.5" />
-              <rect x="3" y="13" width="18" height="8" rx="1.5" />
-            </svg>
-            <span>Estudos</span>
           </button>
           <button data-page="review">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -965,8 +1403,7 @@
     <footer>
       Frontend por Michelle Carneiro · Backend por Noemi · Aprender, lembrar e aplicar.<br /><span
         id="footerNote"
-        >Salvo neste navegador. Lembretes funcionam com o app aberto; não há sincronização
-        automática.</span
+        >Salvo só neste navegador; não há sincronização automática.</span
       >
     </footer>
     <div id="toast" role="status" hidden></div>
@@ -998,7 +1435,7 @@
             ><select name="status">
               <option value="active">Em estudo</option>
               <option value="paused">Pausado</option>
-              <option value="finished">Encerrado</option>
+              <option value="finished">Concluído</option>
             </select></label
           >
         </div>
@@ -1018,9 +1455,47 @@
             maxlength="200"
             placeholder="Ex.: Criar app de Gestão de ASO" /></label
         ><label class="field"
-          ><span>Link do curso, vídeo ou material (opcional)</span
-          ><input name="url" maxlength="2000" type="url" placeholder="https://..."
-        /></label>
+          ><span>Livro, PDF ou curso que vou usar (opcional)</span
+          ><input
+            name="material"
+            maxlength="200"
+            placeholder="Ex.: livro Lógica de Programação, apostila.pdf" /></label
+        ><label class="field"
+          ><span>Link do material (opcional)</span
+          ><input name="url" maxlength="2000" type="url" placeholder="https://..." /><small
+            >Preencha o nome, o link ou os dois.</small
+          ></label
+        >
+        <div class="field">
+          <span>Imagem que representa o projeto (opcional)</span>
+          <div class="imagerow">
+            <img id="coursePreview" alt="Imagem escolhida" hidden />
+            <button type="button" data-action="pickImage">Escolher imagem</button>
+            <button type="button" id="pasteImage" data-action="pasteImage">Colar imagem</button>
+            <button type="button" class="danger" id="clearImage" data-action="clearImage" hidden>
+              Tirar imagem
+            </button>
+          </div>
+          <small
+            >Escolha um arquivo ou cole uma imagem copiada (Ctrl+V). Ela aparece na etiqueta da
+            caixinha deste estudo. Tamanho ideal: imagem deitada, 600 × 400 px (3 de largura para 2
+            de altura). Imagens maiores são reduzidas sozinhas.</small
+          >
+        </div>
+        <div class="field" id="pdfField">
+          <span>Arquivo PDF do material (opcional)</span>
+          <div class="imagerow">
+            <b id="pdfName" hidden></b>
+            <button type="button" id="pickPdf" data-action="pickPdf">Escolher PDF</button>
+            <button type="button" class="danger" id="clearPdf" data-action="clearPdf" hidden>
+              Tirar PDF
+            </button>
+          </div>
+          <small
+            >Até 50 MB. O arquivo fica guardado na sua conta; enviar e abrir precisam de
+            internet.</small
+          >
+        </div>
         <div class="split">
           <label class="field"
             ><span>Prazo do estudo (opcional)</span><input name="deadline" type="date" /><small
@@ -1036,10 +1511,11 @@
         ></label>
         <div class="split">
           <label class="field"
-            ><span>Horário de início</span><input name="startTime" type="time" /></label
+            ><span>Horário de início (opcional)</span><input name="startTime" type="time" /></label
           ><label class="field"
-            ><span>Horário de término</span><input name="endTime" type="time" /><small
-              >A agenda usa o horário local deste dispositivo.</small
+            ><span>Horário de término (opcional)</span><input name="endTime" type="time" /><small
+              >Sem horário, o estudo entra na agenda só com o dia. A agenda usa o horário local
+              deste dispositivo.</small
             ></label
           >
         </div>
@@ -1171,6 +1647,21 @@
         <button class="primary wide" id="completionSubmit">Concluir e guardar aprendizado</button>
       </form>
     </dialog>
+    <dialog id="readerDialog" class="reader">
+      <div class="readerbar">
+        <b id="readerTitle"></b>
+        <button data-action="readerPrev" title="Folha anterior" aria-label="Folha anterior">‹</button>
+        <span id="readerPage"></span>
+        <button data-action="readerNext" title="Próxima folha" aria-label="Próxima folha">›</button>
+        <button data-action="readerZoomOut" title="Diminuir" aria-label="Diminuir a folha">−</button>
+        <button data-action="readerZoomIn" title="Aumentar" aria-label="Aumentar a folha">+</button>
+        <button data-close="readerDialog" title="Fechar" aria-label="Fechar o leitor">×</button>
+      </div>
+      <div class="readerbody" id="readerBody">
+        <p class="muted" id="readerNote"></p>
+        <canvas id="readerCanvas" hidden></canvas>
+      </div>
+    </dialog>
     <dialog id="accountDialog">
       <div class="dialoghead">
         <h2>Minha conta</h2>
@@ -1188,6 +1679,11 @@
       type="file"
       accept=".json,application/json"
       hidden
+    /><input id="imageInput" type="file" accept="image/*" hidden /><input
+      id="pdfInput"
+      type="file"
+      accept="application/pdf,.pdf"
+      hidden
     />
     <script>
       "use strict";
@@ -1202,6 +1698,8 @@
       const SUPABASE_SRI =
         "sha384-BWcjm9OdFth9TbhCxZPdm+gAOUMAzQy9nmTs12ioXdCcbVnJaPMn+fMUoQCLt60R";
       const TABLE = "eec_itens";
+      const BUCKET = "eec-arquivos";
+      const PDF_MAX = 50 * 1024 * 1024;
       const COLS = ["courses", "parts", "sessions"];
       const TIPO = { courses: "estudo", parts: "parte", sessions: "sessao" };
       const CLOUD_KEY = "estudo-em-caixas-nuvem";
@@ -1210,7 +1708,7 @@
       const KEY = "estudo-em-caixas-v1";
       const BOXES = { sustain: "Sustentação", season: "Temporada", sand: "Areia" };
       const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-      const STATUS = { active: "Em estudo", paused: "Pausado", finished: "Encerrado" };
+      const STATUS = { active: "Em estudo", paused: "Pausado", finished: "Concluído" };
 
       // ---------- Estado ----------
       const $ = (id) => document.getElementById(id);
@@ -1226,7 +1724,7 @@
         };
       }
       let state = fresh(),
-        page = "home",
+        page = "studies",
         selected = null,
         courseEdit = null,
         partEdit = null,
@@ -1303,6 +1801,12 @@
           ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${label}</a>`
           : "";
       }
+      // O material do estudo: o nome do livro, PDF ou curso, o link, ou os dois juntos.
+      function material(c) {
+        const name = esc(c.material || ""),
+          a = link(c.url, name ? name + " ↗" : undefined);
+        return name ? `<span>Material: ${a || name}</span>` : a;
+      }
       function notify(msg) {
         const el = $("toast");
         el.textContent = msg;
@@ -1341,6 +1845,11 @@
       // ---------- Validação ----------
       const str = (v, max = 3000) => typeof v === "string" && v.length <= max;
       const optionalDate = (v) => v === "" || Number.isFinite(dayNum(v));
+      // A imagem do estudo é guardada como texto, já reduzida (veja shrink): só entra desse jeito.
+      const goodImage = (v) =>
+        str(v, 60000) && /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(v);
+      // Do PDF, o estudo guarda só o caminho do arquivo na conta: pasta da conta / nome sorteado.
+      const goodPdf = (v) => str(v, 200) && /^[\w-]+\/[\w-]+\.pdf$/.test(v);
       function badCourse(c) {
         return (
           !c ||
@@ -1352,6 +1861,12 @@
           !str(c.goal, 2000) ||
           !str(c.project, 200) ||
           !str(c.url, 2000) ||
+          // Estudos gravados antes de existirem material, imagem e PDF não têm esses campos.
+          !str(c.material ?? "", 200) ||
+          !(!c.image || goodImage(c.image)) ||
+          !(!c.pdf || goodPdf(c.pdf)) ||
+          !str(c.pdfName ?? "", 200) ||
+          !(c.pdfPage === undefined || (Number.isInteger(c.pdfPage) && c.pdfPage >= 1)) ||
           !str(c.nextStep, 2000) ||
           !optionalDate(c.deadline) ||
           !Number.isFinite(dayNum(c.scheduleStart)) ||
@@ -1360,7 +1875,10 @@
           new Set(c.days).size !== c.days.length ||
           !str(c.startTime, 5) ||
           !str(c.endTime, 5) ||
-          (c.days.length && !(timeNum(c.endTime) > timeNum(c.startTime)))
+          // Com dias marcados, o horário é opcional; mas, havendo um, tem de ser início e término.
+          (c.days.length &&
+            (c.startTime || c.endTime) &&
+            !(timeNum(c.endTime) > timeNum(c.startTime)))
         );
       }
       function badPart(p) {
@@ -1466,6 +1984,7 @@
                 )
                   ? b
                   : null,
+              trash: Array.isArray(saved.trash) ? saved.trash.filter(goodPdf) : [],
             };
         } catch (e) {}
         return { owner: null, email: "", base: null };
@@ -1640,6 +2159,7 @@
           syncedAt = Date.now();
           syncAgain ||= pending(late);
           setSync("ok");
+          emptyTrash();
           if (changed) refresh();
         } catch (e) {
           const offline = navigator.onLine === false || /fetch|network/i.test(e?.message);
@@ -1702,6 +2222,7 @@
             partDialog: gone("courses", partCourse) || gone("parts", partEdit),
             sessionDialog: gone("courses", sessionCourse),
             completionDialog: gone("parts", completePart),
+            readerDialog: gone("courses", reader?.id),
           };
         for (const [id, lost] of Object.entries(stale)) {
           const dialog = $(id);
@@ -1711,6 +2232,30 @@
           }
         }
         render();
+      }
+
+      // ---------- Nuvem: arquivos PDF ----------
+      // O PDF de um estudo fica no Storage do Supabase, numa pasta com o id da conta (as regras em
+      // supabase/schema.sql só deixam cada pessoa mexer na própria pasta). Apagar um arquivo pode
+      // ter de esperar a internet: o pedido fica anotado em cloud.trash até dar certo.
+      function trash(path) {
+        if (!path || !cloud.owner || !path.startsWith(cloud.owner + "/")) return;
+        cloud.trash = [...(cloud.trash || []), path];
+        saveCloud();
+        emptyTrash();
+      }
+      async function emptyTrash() {
+        const uid = user?.id,
+          paths = cloud.trash || [];
+        if (!sb || !uid || cloud.owner !== uid || !paths.length) return;
+        try {
+          if ((await sb.storage.from(BUCKET).remove(paths)).error) return;
+        } catch (e) {
+          return;
+        }
+        if (cloud.owner !== uid) return;
+        cloud.trash = (cloud.trash || []).filter((p) => !paths.includes(p));
+        saveCloud();
       }
 
       // ---------- Nuvem: conta ----------
@@ -1765,6 +2310,7 @@
             owner: u.id,
             email: u.email || "",
             base: cloud.owner === u.id ? cloud.base : null,
+            trash: cloud.owner === u.id ? cloud.trash : [],
           };
           saveCloud();
         }
@@ -1802,7 +2348,7 @@
         clearLocal();
         user = null;
         authKnown = true;
-        page = "home";
+        page = "studies";
         $("accountDialog").close();
         render();
       }
@@ -1872,10 +2418,10 @@
         $("accountEmail").textContent = email;
         $("accountStatus").textContent = syncText();
         $("footerNote").textContent = !cloudReady
-          ? "Salvo neste navegador. Lembretes funcionam com o app aberto; não há sincronização automática."
+          ? "Salvo só neste navegador; não há sincronização automática."
           : lock
-            ? "Seus estudos ficam guardados na sua conta. Lembretes funcionam com o app aberto."
-            : `Salvo neste aparelho e sincronizado com a conta ${email}. Lembretes funcionam com o app aberto.`;
+            ? "Seus estudos ficam guardados na sua conta."
+            : `Salvo neste aparelho e na conta ${email}.`;
       }
       const AUTH = {
         in: {
@@ -2062,9 +2608,12 @@
             state.courses.some((c) => c.id === p.course && c.status === "active"),
         );
       }
+      // O horário de uma linha da agenda; quem marcou só os dias da semana fica sem ele.
+      const hours = (r) => (r.start ? r.start + "–" + r.end : "Sem horário");
       function scheduleLabel(c) {
         return c.days.length
-          ? c.days.map((d) => DAYS[d]).join(", ") + " · " + c.startTime + "–" + c.endTime
+          ? c.days.map((d) => DAYS[d]).join(", ") +
+              (c.startTime ? " · " + c.startTime + "–" + c.endTime : "")
           : "Horário ainda não definido";
       }
       function partStatus(p) {
@@ -2078,7 +2627,6 @@
         sand: "Explorar por curiosidade; horários e prazos são opcionais.",
       };
       const PAGES = {
-        home: renderHome,
         agenda: renderAgenda,
         studies: renderStudies,
         detail: renderDetail,
@@ -2087,7 +2635,8 @@
       };
       function render() {
         const main = $("main"),
-          current = page === "detail" ? "studies" : page;
+          current = page === "detail" ? "studies" : page,
+          due = dueReviews().length;
         renderChrome();
         if (locked()) {
           // Só redesenha se a tela mudou, para não apagar o que a pessoa está digitando.
@@ -2095,21 +2644,22 @@
           return;
         }
         main.dataset.view = page;
-        document
-          .querySelectorAll("nav button")
-          .forEach((b) =>
-            b.setAttribute("aria-current", b.dataset.page === current ? "page" : "false"),
-          );
+        document.querySelectorAll("nav button").forEach((b) => {
+          b.setAttribute("aria-current", b.dataset.page === current ? "page" : "false");
+          if (b.dataset.page !== "review") return;
+          if (due) b.dataset.count = due;
+          else delete b.dataset.count;
+          b.title = due ? due + " revisão(ões) para hoje ou com data passada" : "";
+        });
         (Object.hasOwn(PAGES, page) ? PAGES[page] : renderBackup)(main);
       }
 
       // Pedaços que se repetem nas telas. Atenção ao mexer: o texto de um <p> fica sempre numa
       // linha só, porque em cartões e sessões o parágrafo mostra as quebras de linha como estão.
-      function hero(eyebrow, title, text = "", side = "") {
+      function hero(title, text = "", side = "") {
         return `
           <section class="hero">
             <div>
-              <div class="eyebrow">${eyebrow}</div>
               <h1>${title}</h1>
               ${text ? `<p class="muted">${text}</p>` : ""}
             </div>
@@ -2119,62 +2669,94 @@
       function stat(value, label) {
         return `<div class="stat"><b>${value}</b><span>${label}</span></div>`;
       }
-      function deadlineCard(title, context, box, deadline, button) {
-        const late = overdue(deadline);
-        return `
-          <div class="card">
-            <div class="row">
-              <div><h3>${esc(title)}</h3><span class="muted">${esc(context)} · ${BOXES[box]}</span></div>
-              <span class="badge ${late ? "overdue" : ""}">${fmt(deadline)}${late ? " · prazo passou" : ""}</span>
-            </div>
-            ${button}
-          </div>`;
+      // Onde retomar: a anotação da última sessão ou, sem ela, a próxima parte pendente.
+      function resume(c) {
+        const n = nextPart(c.id);
+        return (
+          c.nextStep ||
+          (n
+            ? "Próxima parte: " + n.title
+            : progress(c.id).total
+              ? "Todas as partes concluídas."
+              : "Adicione a primeira parte.")
+        );
       }
-      function courseCard(c) {
-        const p = progress(c.id),
-          n = nextPart(c.id),
-          id = esc(c.id),
-          next = n
-            ? `<p><b>Próxima parte:</b> ${esc(n.title)}</p>`
-            : p.total
-              ? '<p class="muted">Todas as partes foram concluídas. Você pode revisar ou encerrar o estudo.</p>'
-              : '<p class="muted">Divida o estudo em pequenas partes para acompanhar a evolução.</p>';
+      // O desenho da caixinha de papelão. A etiqueta da frente mostra a imagem escolhida para o
+      // estudo; sem imagem, fica uma etiqueta com a cor da prateleira. Sem estudo, é a caixinha
+      // vazia que espera o próximo, com um "+" na etiqueta.
+      function carton(c) {
+        const label = c?.image
+          ? `<image href="${esc(c.image)}" x="16" y="54" width="78" height="52" />`
+          : c
+            ? '<path class="k-mark" d="M16 54h78v12H16z" /><path class="k-ink" d="M26 79h48M26 91h30" />'
+            : '<path class="k-ink" d="M55 66v28M41 80h28" />';
         return `
-          <article class="card">
-            <div class="row"><h3>${esc(c.title)}</h3><span class="badge">${STATUS[c.status]}</span></div>
-            <p class="muted">${esc(c.goal)}</p>
-            <div class="progress" role="progressbar" aria-label="Partes concluídas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p.percent}"><span style="width:${p.percent}%"></span></div>
-            <p class="muted">${p.done} de ${p.total} partes concluídas · ${p.percent}%</p>
-            <p>◷ ${esc(scheduleLabel(c))}</p>
-            ${c.deadline ? `<p><span class="badge ${overdue(c.deadline, c.status === "finished") ? "overdue" : ""}">Prazo: ${fmt(c.deadline)}</span></p>` : ""}
-            ${next}
-            <div class="actions">
-              <button class="small primary" data-action="open" data-id="${id}">Ver estudo →</button>
-              <button class="small" data-action="session" data-id="${id}">Registrar sessão</button>
-              <button class="small" data-action="editCourse" data-id="${id}">Editar</button>
+          <svg class="carton" viewBox="-5 6 138 110" aria-hidden="true">
+            <ellipse class="k-shadow" cx="64" cy="110" rx="58" ry="4" />
+            <path class="k-side" d="M100 40l16-12v70l-16 12z" />
+            <path class="k-front" d="M10 40h90v70H10z" />
+            <rect class="k-label" x="16" y="54" width="78" height="52" />
+            ${label}
+            <rect class="k-frame" x="16" y="54" width="78" height="52" />
+            <path class="k-in" d="M10 40h90l16-12H26z" />
+            <path class="k-flap k-back" d="M26 28h90l4-18H30z" />
+            <path class="k-flap k-left" d="M10 40l16-12-12-8-16 12z" />
+            <path class="k-flap k-right" d="M100 40l16-12 14 4-16 12z" />
+            <path class="k-flap k-fore" d="M10 40h90l3 9H7z" />
+            <g class="k-shut">
+              <path class="k-top" d="M10 40h90l16-12H26z" />
+              <path class="k-tape" d="M49 40h12l16-12H65zM49 40h12v10H49z" />
+            </g>
+          </svg>`;
+      }
+      // A caixinha de um estudo na estante: aberta enquanto ele anda, fechada depois de concluído.
+      // As etiquetas só aparecem quando há algo a avisar: estudo pausado ou concluído, horário
+      // reservado para hoje ou prazo vencido.
+      function courseBox(c, rows) {
+        const p = progress(c.id),
+          active = c.status === "active",
+          done = c.status === "finished",
+          row = rows.find((r) => r.course === c.id),
+          late =
+            active &&
+            (overdue(c.deadline) || courseParts(c.id).some((x) => overdue(x.deadline, x.done)));
+        return `
+          <article class="box${done ? " shut" : active ? "" : " idle"}">
+            ${carton(c)}
+            <div class="about">
+              ${active ? "" : `<span class="badge">${STATUS[c.status]}</span>`}
+              ${late ? '<span class="badge overdue">Atrasado</span>' : ""}
+              ${row ? `<span class="badge today">${row.logged ? "Feito hoje" : ("Hoje " + row.start).trim()}</span>` : ""}
+              <h3><button class="cardlink" data-action="open" data-id="${esc(c.id)}"><span>${esc(c.title)}</span></button></h3>
+              ${
+                done
+                  ? ""
+                  : `<div class="meter">
+                      <div class="progress" role="progressbar" aria-label="Partes concluídas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p.percent}"><span style="width:${p.percent}%"></span></div>
+                      ${p.percent}%
+                    </div>
+                    <p class="resume">${esc(resume(c))}</p>`
+              }
             </div>
           </article>`;
       }
       function slot(row, rows) {
         const c = findCourse(row.course),
-          n = nextPart(c.id),
           id = esc(c.id);
         return `
           <article class="slot">
-            <div class="time">${row.start}–${row.end}</div>
+            <div class="time">${hours(row)}</div>
             <div class="content">
               <div class="parttitle">
                 <h3>${esc(c.title)}</h3>
                 <span class="badge ${c.box}">${BOXES[c.box]}</span>
-                ${row.logged ? '<span class="badge">Sessão registrada neste dia</span>' : ""}
+                ${row.logged ? '<span class="badge">Sessão registrada</span>' : ""}
                 ${overlaps(row, rows) ? '<span class="badge overdue">Horários sobrepostos</span>' : ""}
               </div>
-              <p>${n ? "Parte sugerida: " + esc(n.title) : "Revisar o que foi aprendido ou definir a próxima parte."}</p>
-              ${n ? `<p><b>Vou usar para:</b> ${esc(n.application)}</p>` : ""}
-              ${c.nextStep ? `<p class="muted">Retome por aqui: ${esc(c.nextStep)}</p>` : ""}
+              <p class="muted">${esc(resume(c))}</p>
               <div class="actions">
+                ${row.date === today() ? `<button class="small primary" data-action="session" data-id="${id}" data-date="${row.date}">Registrar sessão</button>` : ""}
                 <button class="small" data-action="open" data-id="${id}">Ver estudo</button>
-                <button class="small primary" data-action="session" data-id="${id}" data-date="${row.date}">Registrar o que estudei</button>
               </div>
             </div>
           </article>`;
@@ -2233,117 +2815,37 @@
           </article>`;
       }
 
-      function renderHome(main) {
-        const active = state.courses.filter((c) => c.status === "active"),
-          pending = state.parts.filter((p) => !p.done && active.some((c) => c.id === p.course)),
-          rows = agenda(today(), 1),
-          reviews = dueReviews(),
-          week = addDays(today(), -6),
-          soon = addDays(today(), 7),
-          byDeadline = (a, b) => a.deadline.localeCompare(b.deadline),
-          recentDone = state.parts.filter(
-            (p) => p.done && p.completed >= week && p.completed <= today(),
-          ).length,
-          threads = active
-            .filter((c) => c.nextStep)
-            .slice(0, 3)
-            .map(
-              (c) => `
-                <div class="card">
-                  <h3>${esc(c.title)}</h3>
-                  <p>${esc(c.nextStep)}</p>
-                  <button class="small" data-action="open" data-id="${esc(c.id)}">Retomar →</button>
-                </div>`,
-            )
-            .join(""),
-          courseDeadlines = active
-            .filter((c) => c.deadline && c.deadline <= soon)
-            .sort(byDeadline)
-            .map((c) =>
-              deadlineCard(
-                c.title,
-                "Prazo do estudo",
-                c.box,
-                c.deadline,
-                `<button class="small" data-action="editCourse" data-id="${esc(c.id)}">Revisar prazo e horários</button>`,
-              ),
-            )
-            .join(""),
-          partDeadlines = pending
-            .filter((p) => p.deadline && p.deadline <= soon)
-            .sort(byDeadline)
-            .slice(0, 8)
-            .map((p) => {
-              const c = findCourse(p.course);
-              return deadlineCard(
-                p.title,
-                c.title,
-                c.box,
-                p.deadline,
-                `<button class="small" data-action="open" data-id="${esc(c.id)}">Ver próximo passo</button>`,
-              );
-            })
-            .join("");
-        main.innerHTML = `
-          ${hero(
-            "Aprender com intenção",
-            "Seu próximo passo<br>tem hora e propósito.",
-            "Estude por caixa, divida o conteúdo em partes e guarde o ponto exato de onde continuar.",
-            `<div class="heroactions">
-              <button class="primary" data-action="newCourse">+ Adicionar estudo</button>
-              <button data-page="agenda">Ver minha agenda</button>
-            </div>`,
-          )}
-          <div class="stats">
-            ${stat(active.length, "estudos ativos")}
-            ${stat(pending.length, "partes pendentes")}
-            ${stat(weeklyMinutes(), "minutos nos últimos 7 dias")}
-            ${stat(recentDone, "partes concluídas nos últimos 7 dias")}
-          </div>
-          <div class="two">
-            <section class="panel">
-              <div class="panelhead"><h2>Minha agenda de hoje</h2><span class="badge">${fmt(today())}</span></div>
-              ${rows.map((r) => slot(r, rows)).join("") || '<div class="empty">Nenhum horário definido para hoje. Cadastre dias e horários em um estudo.</div>'}
-              <button data-page="agenda">Ver próximos 7 dias →</button>
-            </section>
-            <section class="panel">
-              <h2>Para não perder o fio</h2>
-              ${threads || '<p class="muted">Ao registrar uma sessão, escreva a aula, página ou exercício de onde vai continuar.</p>'}
-              <p><b>${reviews.length}</b> revisão(ões) para hoje ou com data passada.</p>
-              <button data-page="review">Revisar aprendizados</button>
-            </section>
-          </div>
-          <section class="panel">
-            <div class="panelhead"><h2>Prazos que merecem atenção</h2><span class="badge">Sem cobrança na caixa de areia</span></div>
-            ${courseDeadlines}
-            ${partDeadlines || '<p class="muted">Nenhuma parte com prazo próximo ou passado.</p>'}
-          </section>`;
-      }
       function renderStudies(main) {
-        const column = ([box, label]) => `
-          <div class="column ${box}">
-            <h2>${label}</h2>
-            <p class="description">${BOX_TEXT[box]}</p>
-            ${
-              state.courses
-                .filter((c) => c.box === box)
-                .map(courseCard)
-                .join("") || '<div class="empty">O que você quer estudar nesta caixa?</div>'
-            }
-            <button class="wide" data-action="newCourse" data-box="${box}">+ Estudo nesta caixa</button>
-          </div>`;
+        const rows = agenda(today(), 1),
+          rank = { active: 0, paused: 1, finished: 2 },
+          shelf = ([box, label]) => {
+            const boxes = state.courses
+              .filter((c) => c.box === box)
+              .sort((a, b) => rank[a.status] - rank[b.status])
+              .map((c) => courseBox(c, rows))
+              .join("");
+            return `
+              <section class="shelf ${box}">
+                <h2>${label}</h2>
+                <div class="boxes">
+                  ${boxes}
+                  <button class="box add" data-action="newCourse" data-box="${box}">
+                    ${carton()}
+                    <span class="about"><b>+ Novo estudo</b>${boxes ? "" : `<small>${BOX_TEXT[box]}</small>`}</span>
+                  </button>
+                </div>
+              </section>`;
+          };
         main.innerHTML = `
-          ${hero(
-            "Um lugar para cada aprendizado",
-            "Estudos nas minhas caixas",
-            "O progresso é a proporção de partes concluídas. O tempo estudado aparece no histórico de sessões.",
-            '<button class="primary" data-action="newCourse">+ Adicionar estudo</button>',
-          )}
-          <section class="grid">${Object.entries(BOXES).map(column).join("")}</section>`;
+          <section class="hero inline">
+            <h1>Minha estante</h1>
+            <button class="primary" data-action="newCourse">+ Novo estudo</button>
+          </section>
+          <div class="bookcase">${Object.entries(BOXES).map(shelf).join("")}</div>`;
       }
       function renderAgenda(main) {
         const rows = agenda(),
-          days = Array.from({ length: 7 }, (_, i) => addDays(today(), i)),
+          dates = [...new Set([today(), ...rows.map((r) => r.date)])],
           expired = state.courses.some(
             (c) => c.status === "active" && c.deadline && c.deadline < today(),
           ),
@@ -2354,22 +2856,23 @@
                 rows
                   .filter((r) => r.date === date)
                   .map((r) => slot(r, rows))
-                  .join("") || '<p class="muted">Sem horário reservado.</p>'
+                  .join("") || '<p class="muted">Nada reservado para hoje.</p>'
               }
             </section>`;
         main.innerHTML = `
           ${hero(
-            "Tempo reservado para aprender",
-            "Minha agenda",
-            "Próximos 7 dias · horários locais deste dispositivo. Ajuste os horários em “Editar” no estudo.",
+            "Agenda",
+            "Próximos 7 dias." +
+              (state.reminders ? " Lembretes ativados: eles só avisam com o app aberto." : ""),
             `<div class="heroactions">
               <button class="primary" data-action="reminders">${state.reminders ? "Desativar lembretes" : "Ativar lembretes"}</button>
               <button data-action="print">Imprimir plano de estudos</button>
             </div>`,
           )}
-          <p class="note">${state.reminders ? "Lembretes ativados." : "Lembretes desativados."} Eles dependem de esta página permanecer aberta e do navegador permitir notificações. Com o navegador fechado ou suspenso, não há alerta garantido. Para esses casos, use também o alarme do celular.</p>
-          ${expired ? '<p class="note">Há estudos com prazo passado. Seus horários deixam de aparecer após a data final; edite o prazo ou encerre o estudo para atualizar o plano.</p>' : ""}
-          <section class="panel">${days.map(day).join("")}</section>`;
+          ${expired ? '<p class="note">Estudos com prazo passado saem da agenda. Edite o prazo ou conclua o estudo.</p>' : ""}
+          <section class="panel">
+            ${rows.length ? dates.map(day).join("") : '<div class="empty">Nenhum horário reservado nos próximos 7 dias. Escolha dias e horários ao editar um estudo.</div>'}
+          </section>`;
       }
       function renderDetail(main) {
         const c = findCourse(selected);
@@ -2384,9 +2887,10 @@
           total = sessions.reduce((n, s) => n + s.minutes, 0),
           id = esc(c.id);
         main.innerHTML = `
-          <button class="headerback" data-page="studies">← Meus estudos</button>
+          <button class="headerback" data-page="studies">← Minha estante</button>
           <section class="hero">
             <div>
+              ${c.image ? `<img class="cover" src="${esc(c.image)}" alt="">` : ""}
               <span class="badge ${c.box}">${BOXES[c.box]}</span>
               <h1>${esc(c.title)}</h1>
               <p class="muted">${esc(c.goal)}</p>
@@ -2395,6 +2899,11 @@
             <div class="heroactions">
               <button class="primary" data-action="session" data-id="${id}">Registrar sessão</button>
               <button data-action="editCourse" data-id="${id}">Editar estudo e horários</button>
+              ${
+                c.status === "finished"
+                  ? `<button data-action="reopenCourse" data-id="${id}">Reabrir a caixa</button>`
+                  : `<button data-action="finishCourse" data-id="${id}">Concluir e fechar a caixa</button>`
+              }
             </div>
           </section>
           <div class="stats">
@@ -2404,7 +2913,16 @@
             <div class="stat"><b style="font-size:18px">${fmt(c.deadline)}</b><span>${STATUS[c.status]}</span></div>
           </div>
           <section class="panel">
-            <div class="linkrow"><b>◷ ${esc(scheduleLabel(c))}</b>${link(c.url)}</div>
+            <div class="linkrow">
+              <b>◷ ${esc(scheduleLabel(c))}</b>
+              ${material(c)}
+              ${
+                c.pdf
+                  ? `<button class="small primary" data-action="readPdf" data-id="${id}" title="${esc(c.pdfName || "")}">Ler PDF</button>
+                     <button class="small" data-action="openPdf" data-id="${id}">Abrir em outra aba ↗</button>`
+                  : ""
+              }
+            </div>
             ${c.nextStep ? `<p class="callout"><b>Retome por aqui:</b>\n${esc(c.nextStep)}</p>` : ""}
           </section>
           <section class="panel">
@@ -2412,12 +2930,10 @@
               <h2>Partes do meu estudo</h2>
               <button class="primary" data-action="newPart" data-id="${id}">+ Adicionar parte</button>
             </div>
-            <p class="muted">Para cada parte: o que estudar, como conferir se entendeu e o que fazer com esse aprendizado.</p>
             ${parts.map(partCard).join("") || '<div class="empty">Comece com uma aula, capítulo ou pequeno tópico.</div>'}
           </section>
           <section class="panel">
             <h2>Minha evolução</h2>
-            <p class="muted">Registros reais de estudo. Concluir uma parte e registrar minutos são ações diferentes.</p>
             ${sessions.slice(0, 50).map(sessionEntry).join("") || '<div class="empty">Registre uma sessão para guardar o que aprendeu e de onde continuar.</div>'}
             ${sessions.length > 50 ? '<p class="muted">Mostrando os 50 registros mais recentes. O backup e o relatório incluem todos.</p>' : ""}
           </section>
@@ -2428,9 +2944,8 @@
           all = state.parts.filter((p) => p.done);
         main.innerHTML = `
           ${hero(
-            "Lembrar e transformar em uso",
-            "O que vou fazer com o que aprendi?",
-            "Tente explicar com suas palavras antes de voltar ao material. Depois, ajuste a aplicação que você pretende fazer.",
+            "Revisão",
+            "O que vou fazer com o que aprendi? Tente explicar com suas palavras antes de voltar ao material.",
             '<button data-action="print">Imprimir meu plano</button>',
           )}
           <section class="panel">
@@ -2462,7 +2977,7 @@
             </section>`
           : "";
         main.innerHTML = `
-          ${hero("Seu registro, no seu ritmo", "Backup e primeiros passos")}
+          ${hero("Backup e ajuda")}
           <div class="info">
             ${account}
             <section class="panel">
@@ -2472,7 +2987,8 @@
                 2. Escolha dias, horários e um prazo, se fizer sentido.<br>
                 3. Divida o conteúdo em partes pequenas e responda para que vai usar cada uma.<br>
                 4. Ao estudar, registre os minutos, o aprendizado e onde vai continuar.<br>
-                5. Conclua a parte quando estiver pronta e escolha uma data de revisão.
+                5. Conclua a parte quando estiver pronta e escolha uma data de revisão.<br>
+                6. Terminou o estudo? Abra-o e toque em “Concluir e fechar a caixa”: a caixinha dele fecha na estante.
               </p>
               <p class="note">Exemplos: higiene ocupacional na sustentação; JavaScript para a entrega de um app na temporada; eletrônica por curiosidade na areia. Vários estudos podem apoiar o mesmo projeto de temporada.</p>
               <button class="primary" data-action="newCourse">Cadastrar meu primeiro estudo</button>
@@ -2498,7 +3014,7 @@
             <section class="panel">
               <h2>Lembretes e agenda</h2>
               <p>Ative os lembretes em “Minha agenda” e permita notificações, se o navegador oferecer essa opção. Com o app aberto, ele avisa durante o horário reservado e destaca prazos e revisões do dia. A suspensão da aba ou o fechamento do navegador pode impedir o aviso; use o alarme do celular para garantir um lembrete fora do app.</p>
-              <p>A agenda repete os horários por dia da semana a partir da data inicial, até o prazo do estudo, quando definido. Estudos pausados ou encerrados não aparecem na agenda. Horários sobrepostos são destacados para você ajustar.</p>
+              <p>A agenda repete os horários por dia da semana a partir da data inicial, até o prazo do estudo, quando definido. Estudos pausados ou concluídos não aparecem na agenda. Horários sobrepostos são destacados para você ajustar.</p>
             </section>
           </div>`;
       }
@@ -2508,11 +3024,331 @@
       $("weekdayFields").innerHTML = [1, 2, 3, 4, 5, 6, 0]
         .map((d) => `<label><input type="checkbox" name="days" value="${d}">${DAYS[d]}</label>`)
         .join("");
+      // ---------- Imagem do estudo ----------
+      // A imagem escolhida é reduzida aqui mesmo e guardada junto com o estudo, como texto. Fica
+      // pequena de propósito: ela vai para o aparelho, para a conta e para o backup com o resto.
+      let courseImage = "";
+      function showImage(v) {
+        const preview = $("coursePreview");
+        courseImage = v;
+        if (v) preview.src = v;
+        else preview.removeAttribute("src");
+        preview.hidden = $("clearImage").hidden = !v;
+      }
+      function shrink(file) {
+        return new Promise((done, fail) => {
+          const reader = new FileReader(),
+            img = new Image();
+          reader.onerror = img.onerror = () => fail(Error("Imagem ilegível."));
+          reader.onload = () => (img.src = reader.result);
+          img.onload = () => {
+            // Tenta do maior para o menor até caber no limite de goodImage.
+            for (const side of [256, 192, 128]) {
+              const k = Math.min(1, side / Math.max(img.width, img.height)),
+                canvas = document.createElement("canvas"),
+                ctx = canvas.getContext("2d");
+              canvas.width = Math.max(1, Math.round(img.width * k));
+              canvas.height = Math.max(1, Math.round(img.height * k));
+              // Fundo branco: o que era transparente não vira preto no JPG.
+              ctx.fillStyle = "#fff";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              const out = canvas.toDataURL("image/jpeg", 0.82);
+              if (goodImage(out)) return done(out);
+            }
+            fail(Error("Imagem grande demais."));
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+      async function useImage(file) {
+        try {
+          showImage(await shrink(file));
+          $("courseError").textContent = "";
+        } catch (err) {
+          $("courseError").textContent = "Não foi possível usar esta imagem. Tente outra, em JPG ou PNG.";
+        }
+      }
+      $("imageInput").addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        e.target.value = "";
+        if (file) useImage(file);
+      });
+      // Com o formulário do estudo aberto, colar (Ctrl+V) uma imagem copiada vale como escolher.
+      // Havendo texto junto na área de transferência, é uma colagem comum num campo e segue normal.
+      document.addEventListener("paste", (e) => {
+        const file = [...(e.clipboardData?.files || [])].find((f) => f.type.startsWith("image/"));
+        if (!file || !$("courseDialog").open || e.clipboardData.getData("text/plain")) return;
+        e.preventDefault();
+        useImage(file);
+      });
+      $("pasteImage").hidden = !navigator.clipboard?.read;
+
+      // ---------- PDF do estudo ----------
+      // O arquivo é enviado para a conta assim que é escolhido; no estudo ficam só o caminho e o
+      // nome dele. pdfTurn muda a cada formulário aberto ou fechado: um envio que termina depois
+      // disso chegou tarde, e o arquivo dele é descartado.
+      let coursePdf = { path: "", name: "" },
+        pdfBusy = false,
+        pdfTurn = 0;
+      function showPdf(path = "", name = "") {
+        // O que foi enviado neste formulário e não chegou a ser salvo num estudo sai da conta.
+        const saved = findCourse(courseEdit)?.pdf || "";
+        if (coursePdf.path && coursePdf.path !== path && coursePdf.path !== saved)
+          trash(coursePdf.path);
+        coursePdf = { path, name };
+        $("pdfName").textContent = name;
+        $("pdfName").hidden = $("clearPdf").hidden = !path;
+        $("pickPdf").textContent = path ? "Trocar PDF" : "Escolher PDF";
+        $("pickPdf").disabled = false;
+      }
+      $("pdfField").hidden = !cloudReady;
+      $("pdfInput").addEventListener("change", async (e) => {
+        const file = e.target.files[0],
+          error = $("courseError"),
+          turn = pdfTurn;
+        e.target.value = "";
+        if (!file) return;
+        error.textContent =
+          file.type !== "application/pdf" && !/\.pdf$/i.test(file.name)
+            ? "Escolha um arquivo PDF."
+            : file.size > PDF_MAX
+              ? "Este PDF passa de 50 MB. Escolha um arquivo menor."
+              : !sb || !user
+                ? "Para enviar o PDF é preciso estar com internet e dentro da conta."
+                : "";
+        if (error.textContent) return;
+        const path = user.id + "/" + uid() + ".pdf";
+        let failed;
+        pdfBusy = true;
+        $("pdfName").textContent = "Enviando " + file.name + "…";
+        $("pdfName").hidden = false;
+        $("pickPdf").disabled = true;
+        try {
+          // O tipo vai escrito à mão: o espaço na conta só aceita PDF, e há aparelhos que não informam.
+          failed = (
+            await sb.storage
+              .from(BUCKET)
+              .upload(path, new Blob([file], { type: "application/pdf" }))
+          ).error;
+        } catch (err) {
+          failed = err;
+        }
+        if (turn !== pdfTurn) {
+          if (!failed) trash(path);
+          return;
+        }
+        pdfBusy = false;
+        if (failed) {
+          console.warn("PDF:", failed.message || failed);
+          error.textContent = "Não foi possível enviar o PDF. Confira a internet e tente de novo.";
+          showPdf(coursePdf.path, coursePdf.name);
+        } else showPdf(path, file.name.slice(0, 200));
+      });
+      $("courseDialog").addEventListener("close", () => {
+        pdfTurn++;
+        pdfBusy = false;
+        showPdf();
+      });
+
+      // ---------- Leitor de PDF ----------
+      // A biblioteca de leitura (PDF.js, da Mozilla) só é baixada quando alguém abre um PDF. Vem do
+      // mesmo CDN da biblioteca da nuvem, com o hash de integridade conferido nas duas partes: a que
+      // desenha a folha e o "motor" (worker), que roda à parte para a tela não travar.
+      // É a versão 3.11.174 "legacy", a última que funciona em celulares mais antigos. Ela tem uma
+      // falha conhecida (CVE-2024-4367), que depende de montar código a partir do PDF: isso fica
+      // desligado em isEvalSupported e, de todo modo, a Content-Security-Policy da página não deixa.
+      const PDFJS = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/";
+      const PDFJS_SRI = "sha384-OemFRmhjDZwhIKuUld0HJozkF2YErsgDaCL41trxGQZt4/WgnopJQqQl2DvDZ07Z";
+      const PDFJS_WORKER_SRI =
+        "sha384-sS8B4COeBqzQV9DaPpp5cbpF+xz2jPcFbN3L8FL3/dx0RMC6WLUwTUOFm0iFb1lw";
+      // reader é a leitura aberta: o estudo, o arquivo, o documento, a folha e o tamanho. turn conta
+      // os pedidos de desenho, para o mais novo passar na frente dos que ainda não terminaram.
+      let pdfjs = null,
+        reader = null;
+      function loadPdfJs() {
+        pdfjs ||= new Promise((done, fail) => {
+          const s = document.createElement("script"),
+            // Se falhar (sem internet, por exemplo), a próxima tentativa começa do zero.
+            giveUp = (e) => {
+              s.remove();
+              pdfjs = null;
+              fail(e);
+            };
+          s.src = PDFJS + "legacy/build/pdf.min.js";
+          s.integrity = PDFJS_SRI;
+          s.crossOrigin = "anonymous";
+          s.onerror = () => giveUp(Error("a biblioteca de PDF não carregou"));
+          s.onload = async () => {
+            try {
+              const r = await fetch(PDFJS + "legacy/build/pdf.worker.min.js", {
+                integrity: PDFJS_WORKER_SRI,
+              });
+              if (!r.ok) throw Error("o motor de PDF não carregou");
+              globalThis.pdfjsLib.GlobalWorkerOptions.workerPort = new Worker(
+                URL.createObjectURL(await r.blob()),
+              );
+              done(globalThis.pdfjsLib);
+            } catch (e) {
+              giveUp(e);
+            }
+          };
+          document.head.append(s);
+        });
+        return pdfjs;
+      }
+      async function openReader(id) {
+        const c = findCourse(id),
+          note = $("readerNote"),
+          mine = { id, path: c.pdf, doc: null, task: null, page: 1, zoom: 1, turn: 0 };
+        if (!sb || !user) {
+          notify("Para ler o PDF é preciso estar com internet e dentro da conta.");
+          return;
+        }
+        reader = mine;
+        $("readerTitle").textContent = c.pdfName || c.title;
+        $("readerPage").textContent = "";
+        $("readerCanvas").hidden = true;
+        note.hidden = false;
+        note.textContent = "Abrindo o PDF…";
+        $("readerDialog").showModal();
+        try {
+          const [lib, link] = await Promise.all([
+            loadPdfJs(),
+            sb.storage.from(BUCKET).createSignedUrl(c.pdf, 3600),
+          ]);
+          if (link.error) throw link.error;
+          const doc = await lib.getDocument({
+            url: link.data.signedUrl,
+            isEvalSupported: false,
+            cMapUrl: PDFJS + "cmaps/",
+            cMapPacked: true,
+            standardFontDataUrl: PDFJS + "standard_fonts/",
+          }).promise;
+          if (reader !== mine) {
+            doc.destroy();
+            return;
+          }
+          mine.doc = doc;
+          mine.page = Math.min(Math.max(1, c.pdfPage || 1), doc.numPages);
+          drawPage(true);
+        } catch (e) {
+          if (reader !== mine) return;
+          console.warn("PDF:", e?.message || e);
+          note.textContent = "Não foi possível abrir o PDF. Confira a internet e tente de novo.";
+        }
+      }
+      // Desenha a folha atual numa tela nova e só então troca a que está à vista: a leitura não
+      // pisca, e um pedido mais novo (outra folha, outro tamanho) desiste do anterior.
+      async function drawPage(top) {
+        const r = reader,
+          body = $("readerBody"),
+          note = $("readerNote");
+        if (!r?.doc) return;
+        const turn = ++r.turn;
+        r.task?.cancel();
+        $("readerPage").textContent = r.page + " / " + r.doc.numPages;
+        try {
+          const page = await r.doc.getPage(r.page),
+            base = page.getViewport({ scale: 1 }),
+            scale = (Math.max(120, body.clientWidth - 24) / base.width) * r.zoom,
+            // Telas de celular têm 2 ou 3 pontos por medida; a folha usa todos, até um total de
+            // pontos que o aparelho aguenta.
+            dots = Math.min(
+              devicePixelRatio || 1,
+              Math.sqrt(12e6 / (base.width * base.height * scale * scale)),
+            ),
+            view = page.getViewport({ scale: scale * dots }),
+            canvas = document.createElement("canvas");
+          if (reader !== r || r.turn !== turn) return;
+          canvas.id = "readerCanvas";
+          canvas.width = Math.ceil(view.width);
+          canvas.height = Math.ceil(view.height);
+          canvas.style.width = Math.round(view.width / dots) + "px";
+          r.task = page.render({ canvasContext: canvas.getContext("2d"), viewport: view });
+          await r.task.promise;
+          if (reader !== r || r.turn !== turn) return;
+          $("readerCanvas").replaceWith(canvas);
+          note.hidden = true;
+          if (top) body.scrollTo(0, 0);
+        } catch (e) {
+          if (reader !== r || r.turn !== turn) return;
+          console.warn("PDF:", e?.message || e);
+          note.hidden = false;
+          note.textContent = "Não foi possível mostrar esta folha.";
+        }
+      }
+      function turnPage(n) {
+        const r = reader,
+          to = r?.doc ? Math.min(Math.max(1, r.page + n), r.doc.numPages) : 0;
+        if (!to || to === r.page) return;
+        r.page = to;
+        drawPage(true);
+      }
+      function zoomPage(k) {
+        if (!reader?.doc) return;
+        reader.zoom = Math.min(4, Math.max(0.5, reader.zoom * k));
+        drawPage();
+      }
+      $("readerDialog").addEventListener("close", () => {
+        const r = reader,
+          c = findCourse(r?.id),
+          blank = document.createElement("canvas");
+        reader = null;
+        if (!r) return;
+        r.task?.cancel();
+        r.doc?.destroy();
+        blank.id = "readerCanvas";
+        blank.hidden = true;
+        $("readerCanvas").replaceWith(blank);
+        // A folha em que a leitura parou fica guardada no estudo e vale em todos os aparelhos.
+        if (r.doc && c?.pdf === r.path && (c.pdfPage || 1) !== r.page) {
+          c.pdfPage = r.page;
+          save();
+        }
+      });
+      $("readerDialog").addEventListener("keydown", (e) => {
+        const n = { ArrowRight: 1, PageDown: 1, ArrowLeft: -1, PageUp: -1 }[e.key];
+        if (!n) return;
+        e.preventDefault();
+        turnPage(n);
+      });
+      // No celular, arrastar o dedo para o lado vira a folha. Com a folha ampliada o dedo só a
+      // arrasta, e por isso o gesto fica desligado.
+      let swipe = null;
+      $("readerBody").addEventListener(
+        "touchstart",
+        (e) => {
+          const t = e.touches[0];
+          swipe = e.touches.length === 1 ? { x: t.clientX, y: t.clientY } : null;
+        },
+        { passive: true },
+      );
+      $("readerBody").addEventListener(
+        "touchend",
+        (e) => {
+          const from = swipe,
+            t = e.changedTouches[0],
+            body = $("readerBody");
+          swipe = null;
+          if (!from || body.scrollWidth > body.clientWidth + 2) return;
+          const dx = t.clientX - from.x,
+            dy = t.clientY - from.y;
+          if (Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy)) turnPage(dx < 0 ? 1 : -1);
+        },
+        { passive: true },
+      );
+
       function openCourse(id = null, box = "sustain") {
         courseEdit = id;
         courseForm.reset();
         const c = findCourse(id);
         $("courseHeading").textContent = c ? "Editar estudo" : "Novo estudo";
+        showImage(c?.image || "");
+        pdfTurn++;
+        pdfBusy = false;
+        coursePdf = { path: "", name: "" };
+        showPdf(c?.pdf, c?.pdfName);
         if (c) {
           for (const k of [
             "title",
@@ -2520,6 +3356,7 @@
             "status",
             "goal",
             "project",
+            "material",
             "url",
             "deadline",
             "scheduleStart",
@@ -2527,7 +3364,7 @@
             "endTime",
             "nextStep",
           ])
-            courseForm.elements[k].value = c[k];
+            courseForm.elements[k].value = c[k] ?? "";
           courseForm
             .querySelectorAll("[name=days]")
             .forEach((el) => (el.checked = c.days.includes(Number(el.value))));
@@ -2545,7 +3382,15 @@
         data.days = fd.getAll("days").map(Number);
         data.title = data.title.trim();
         data.goal = data.goal.trim();
+        data.material = data.material.trim();
+        data.image = courseImage;
+        data.pdf = coursePdf.path;
+        data.pdfName = coursePdf.name;
         const error = $("courseError");
+        if (pdfBusy) {
+          error.textContent = "Espere o envio do PDF terminar.";
+          return;
+        }
         if (!data.title || !data.goal) {
           error.textContent = "Informe o estudo e o propósito.";
           return;
@@ -2561,8 +3406,13 @@
           error.textContent = "O prazo deve ser igual ou posterior ao início da agenda.";
           return;
         }
-        if (data.days.length && !(timeNum(data.endTime) > timeNum(data.startTime))) {
-          error.textContent = "Escolha início e término no mesmo dia, com término após o início.";
+        if (
+          data.days.length &&
+          (data.startTime || data.endTime) &&
+          !(timeNum(data.endTime) > timeNum(data.startTime))
+        ) {
+          error.textContent =
+            "Preencha início e término, com o término depois do início, ou deixe os dois em branco.";
           return;
         }
         if (data.url && !safeURL(data.url)) {
@@ -2570,6 +3420,11 @@
           return;
         }
         const c = findCourse(courseEdit);
+        // PDF trocado ou tirado: o arquivo anterior sai da conta. O atual passa a ser do estudo,
+        // e por isso fechar o formulário não o descarta.
+        if (c?.pdf !== data.pdf) trash(c?.pdf);
+        data.pdfPage = c?.pdf === data.pdf ? c.pdfPage || 1 : 1;
+        coursePdf = { path: "", name: "" };
         if (c) Object.assign(c, data);
         else state.courses.push({ ...data, id: uid(), created: Date.now() });
         save();
@@ -2758,8 +3613,87 @@
           openCourse(b.dataset.id);
         },
         open(b) {
-          selected = b.dataset.id;
-          go("detail");
+          const box = b.closest(".box.shut"),
+            show = () => {
+              selected = b.dataset.id;
+              go("detail");
+            };
+          // Caixinha fechada: primeiro ela abre, depois aparece o estudo.
+          if (!box || matchMedia("(prefers-reduced-motion: reduce)").matches) show();
+          else if (!box.classList.contains("opening")) {
+            box.classList.add("opening");
+            setTimeout(show, 600);
+          }
+        },
+        pickImage() {
+          $("imageInput").click();
+        },
+        async pasteImage() {
+          const error = $("courseError");
+          try {
+            for (const item of await navigator.clipboard.read()) {
+              const type = item.types.find((t) => t.startsWith("image/"));
+              if (type) return useImage(await item.getType(type));
+            }
+            error.textContent = "Não achei imagem copiada. Copie uma imagem e tente de novo.";
+          } catch (e) {
+            error.textContent = "O navegador não deixou colar por aqui. Use Ctrl+V com este formulário aberto.";
+          }
+        },
+        clearImage() {
+          showImage("");
+        },
+        pickPdf() {
+          $("pdfInput").click();
+        },
+        readPdf(b) {
+          openReader(b.dataset.id);
+        },
+        readerPrev() {
+          turnPage(-1);
+        },
+        readerNext() {
+          turnPage(1);
+        },
+        readerZoomOut() {
+          zoomPage(0.8);
+        },
+        readerZoomIn() {
+          zoomPage(1.25);
+        },
+        clearPdf() {
+          showPdf();
+        },
+        async openPdf(b) {
+          const c = findCourse(b.dataset.id);
+          if (!sb || !user) {
+            notify("Para abrir o PDF é preciso estar com internet e dentro da conta.");
+            return;
+          }
+          // A aba abre já no clique, antes de a nuvem responder; senão o navegador barra a janela.
+          const tab = window.open("about:blank");
+          try {
+            const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(c.pdf, 3600);
+            if (error) throw error;
+            if (tab) tab.location.replace(data.signedUrl);
+            else location.assign(data.signedUrl);
+          } catch (e) {
+            tab?.close();
+            console.warn("PDF:", e?.message || e);
+            notify("Não foi possível abrir o PDF. Confira a internet e tente de novo.");
+          }
+        },
+        finishCourse(b) {
+          findCourse(b.dataset.id).status = "finished";
+          save();
+          go("studies");
+          notify("Estudo concluído. A caixinha dele fechou.");
+        },
+        reopenCourse(b) {
+          findCourse(b.dataset.id).status = "active";
+          save();
+          render();
+          notify("Caixinha reaberta. O estudo voltou a andar.");
         },
         newPart(b) {
           openPart(b.dataset.id);
@@ -2817,6 +3751,7 @@
             )
           )
             return;
+          trash(findCourse(id)?.pdf);
           state.courses = state.courses.filter((c) => c.id !== id);
           state.parts = state.parts.filter((p) => p.course !== id);
           state.sessions = state.sessions.filter((s) => s.course !== id);
@@ -2948,7 +3883,11 @@
                   ? x.notes.slice(0, 2000)
                   : "Definir o que quero aprender e como vou usar.",
             project: x.box === "season" ? x.title : "",
+            material: "",
             url: "",
+            image: "",
+            pdf: "",
+            pdfName: "",
             deadline: "",
             scheduleStart: today(),
             days: [],
@@ -3030,7 +3969,7 @@
               key: date + ":deadlines",
               text:
                 due.length +
-                " parte(s) com prazo hoje ou passado. Abra o painel e ajuste seu próximo passo.",
+                " parte(s) com prazo hoje ou passado. Abra o estudo e ajuste seu próximo passo.",
             });
           const reviews = dueReviews(date);
           if (reviews.length)
@@ -3083,7 +4022,8 @@
             <p><b>Propósito:</b> ${esc(c.goal)}</p>
             <p><b>Horários:</b> ${esc(scheduleLabel(c))}<br><b>Prazo:</b> ${fmt(c.deadline)}<br><b>Progresso:</b> ${p.done}/${p.total} partes · ${p.percent}%</p>
             ${c.nextStep ? `<p><b>Retomar por:</b> ${esc(c.nextStep)}</p>` : ""}
-            ${link(c.url)}
+            ${material(c)}
+            ${c.pdf ? `<p><b>PDF guardado na conta:</b> ${esc(c.pdfName || "arquivo")}</p>` : ""}
             <h4>Partes e aplicações</h4>
             ${courseParts(c.id).map(reportPart).join("") || "<p>Partes ainda não definidas.</p>"}
             <h4>Histórico de evolução</h4>
@@ -3114,7 +4054,7 @@
           <p>Estudo em Caixas · ${fmt(today())} · cópia dos registros atuais.</p>
           <p><b>${weeklyMinutes()} minutos registrados nos últimos 7 dias.</b> O progresso conta partes concluídas, não mede domínio do conteúdo.</p>
           <h2>Agenda dos próximos 7 dias</h2>
-          ${rows.length ? `<ul>${rows.map((r) => `<li>${fmt(r.date)} · ${r.start}–${r.end} · ${esc(r.title)} (${BOXES[r.box]})</li>`).join("")}</ul>` : "<p>Nenhum horário definido.</p>"}
+          ${rows.length ? `<ul>${rows.map((r) => `<li>${fmt(r.date)} · ${hours(r)} · ${esc(r.title)} (${BOXES[r.box]})</li>`).join("")}</ul>` : "<p>Nenhum horário definido.</p>"}
           ${Object.entries(BOXES).map(box).join("")}
           <h2>Minha próxima ação</h2>
           <p>Reserve um horário viável, escolha uma parte pendente e pratique a aplicação que você escreveu. Ao terminar, registre o aprendizado e o ponto de retomada. Na areia, explore sem obrigação de entrega.</p>
