@@ -1,0 +1,9 @@
+{
+  "appId": "br.com.estudoemcaixas",
+  "appName": "Estudo em Caixas",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#f5f5f0",
+    "adjustMarginsForEdgeToEdge": "auto"
+  }
+}

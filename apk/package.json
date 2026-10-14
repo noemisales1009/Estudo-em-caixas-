@@ -1,0 +1,14 @@
+{
+  "name": "estudo-em-caixas-apk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gera o aplicativo Android (APK) do Estudo em Caixas embrulhando o index.html.",
+  "scripts": {
+    "apk": "node montar.mjs && cap sync android && node gerar.mjs"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3"
+  }
+}

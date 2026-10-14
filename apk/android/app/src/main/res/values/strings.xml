@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Estudo em Caixas</string>
+    <string name="title_activity_main">Estudo em Caixas</string>
+    <string name="package_name">br.com.estudoemcaixas</string>
+    <string name="custom_url_scheme">br.com.estudoemcaixas</string>
+</resources>

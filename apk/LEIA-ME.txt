@@ -1,0 +1,40 @@
+APLICATIVO ANDROID (APK) DO ESTUDO EM CAIXAS
+
+O APK embrulha o mesmo index.html do site num aplicativo Android (com o Capacitor). Dentro
+dele o app é idêntico ao do navegador, com todas as funções: conta, nuvem, ideias, PDF, modo
+sem internet, tema claro e escuro.
+
+A diferença: o APK não se atualiza sozinho. Cada vez que o index.html mudar, gere um APK
+novo e instale por cima do anterior no celular.
+
+GERAR O APK
+1. Precisa do Node (22+), do Java (JDK 21) e do Android SDK. O script
+   instala-android.sh (ver abaixo) deixa Java e SDK em %LOCALAPPDATA%\Android, sem
+   precisar de administrador. Se já tiver os dois instalados em outro lugar, defina
+   JAVA_HOME e ANDROID_HOME antes de rodar.
+2. Nesta pasta (apk), na primeira vez:  npm install
+3. Depois, sempre que quiser um APK novo:  npm run apk
+   Isso copia os arquivos do site para www, sincroniza o projeto Android, compila
+   (a primeira vez baixa o Gradle e demora alguns minutos), alinha e assina.
+4. O arquivo sai como "Estudo em Caixas.apk", aqui nesta pasta.
+
+INSTALAR NO CELULAR
+Mande o arquivo para o celular (WhatsApp, Drive, cabo USB...) e toque nele. Na primeira vez
+o Android pede para permitir a instalação de apps dessa origem. O Play Protect pode avisar
+que o app não é da loja; toque em "Instalar mesmo assim".
+
+A CHAVE
+Na primeira geração são criados chave-estudo-em-caixas.jks e chave-senha.txt. Guarde os
+dois em lugar seguro (fora do Git: já estão no .gitignore). Só essa chave consegue
+atualizar o app já instalado; com outra chave o celular obriga a desinstalar antes, e aí os
+dados que estavam só no aparelho se perdem (os da conta continuam na nuvem).
+
+ÍCONE
+Os ícones do aplicativo vêm do ícone do site: python icones.py ../icones/icone-cheio-512.png android/app/src/main/res
+Rode de novo se o ícone do site mudar.
+
+INSTALAR JAVA E ANDROID SDK NA MÃO
+Java: JDK 21 da Adoptium (zip), descompactado em %LOCALAPPDATA%\Android\jdk-21.
+SDK: "command line tools" do Android, descompactadas em
+%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest, e depois:
+  sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
