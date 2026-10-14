@@ -78,6 +78,7 @@
         --error: #a6382f;
         --overdue: #9f302a;
         --overdue-bg: #fae7e4;
+        --stamp: #c13a2e;
         --warn: #fff0d4;
         --toast: #293631;
         --on-toast: #fff;
@@ -123,6 +124,7 @@
         --error: #f3a199;
         --overdue: #ffb3aa;
         --overdue-bg: #4a2420;
+        --stamp: #d14a3d;
         --warn: #4a3a14;
         --toast: #e4ebe6;
         --on-toast: #17201c;
@@ -677,6 +679,26 @@
       .k-tag {
         fill: var(--lid);
       }
+      /* O carimbo de concluído: um adesivo claro colado na frente da caixinha, por cima da fita
+         da tampa, com CONCLUÍDO carimbado nele em tinta vermelha, como um carimbo de "frágil".
+         O adesivo mantém a leitura mesmo sobre a imagem do estudo. */
+      .carton .k-sticker {
+        fill: var(--label);
+        stroke-width: 1;
+      }
+      .carton .k-stamp-line {
+        fill: none;
+        stroke: var(--stamp);
+        stroke-width: 1.4;
+      }
+      .carton .k-stamp text {
+        fill: var(--stamp);
+        font-size: 9px;
+      }
+      /* A data na etiqueta pendurada, em duas linhas: dia/mês e ano. */
+      .carton .k-date {
+        font-size: 8px;
+      }
       /* A etiqueta pendurada por um barbante na caixinha de uma ideia: avisa que ela não tem data. */
       .carton .k-string {
         fill: none;
@@ -740,7 +762,11 @@
       .shut .k-right {
         transform: scale(0);
       }
-      /* Ao tocar numa caixinha fechada, ela abre antes de mostrar o estudo. */
+      /* Ao tocar numa caixinha fechada, ela dá um pulinho e abre antes de mostrar o estudo: a
+         tampa some, e as abas se levantam logo em seguida. O carimbo fica, na frente. */
+      .shut.opening .carton {
+        animation: lift 0.6s cubic-bezier(0.3, 1.5, 0.5, 1);
+      }
       .shut.opening .k-shut {
         opacity: 0;
       }
@@ -749,6 +775,12 @@
       }
       .shut.opening .k-flap {
         transform: none;
+        transition-delay: 0.12s;
+      }
+      @keyframes lift {
+        40% {
+          transform: translateY(-8px);
+        }
       }
       @keyframes shake {
         25% {
@@ -1543,6 +1575,11 @@
             </select></label
           >
         </div>
+        <label class="field" id="completedField" hidden
+          ><span>Concluído em</span><input name="completed" type="date" /><small
+            >A data que vai na etiqueta pendurada na caixinha.</small
+          ></label
+        >
         <label class="field"
           ><span>Para que vou estudar isso?</span
           ><textarea
@@ -1963,6 +2000,12 @@
           a = link(c.url, name ? name + " ↗" : undefined);
         return name ? `<span>Material: ${a || name}</span>` : a;
       }
+      // A situação do estudo por extenso; concluído, com a data em que a caixinha fechou.
+      function statusLabel(c) {
+        return c.status === "finished" && c.completed
+          ? "Concluído em " + fmt(c.completed)
+          : STATUS[c.status];
+      }
       function notify(msg) {
         const el = $("toast");
         el.textContent = msg;
@@ -2026,6 +2069,8 @@
           !(c.pdfPage === undefined || (Number.isInteger(c.pdfPage) && c.pdfPage >= 1)) ||
           !str(c.nextStep, 2000) ||
           !optionalDate(c.deadline) ||
+          // A data de conclusão chegou depois; os estudos de antes não a têm.
+          !optionalDate(c.completed ?? "") ||
           !Number.isFinite(dayNum(c.scheduleStart)) ||
           !Array.isArray(c.days) ||
           c.days.some((n) => !Number.isInteger(n) || n < 0 || n > 6) ||
@@ -2928,6 +2973,8 @@
       // O desenho da caixinha de papelão. A etiqueta da frente mostra a imagem escolhida para o
       // estudo; sem imagem, fica uma etiqueta com a cor da prateleira. A ideia leva uma lâmpada.
       // Sem estudo, é a caixinha vazia que espera o próximo, com um "+" na etiqueta.
+      // O estudo concluído leva o carimbo de CONCLUÍDO, colado por cima da fita da tampa, e a
+      // etiqueta pendurada com a data em que fechou.
       function carton(c, idea = false) {
         const label = c?.image
           ? `<image href="${esc(c.image)}" x="16" y="54" width="78" height="52" />`
@@ -2936,14 +2983,30 @@
             : c
               ? '<path class="k-mark" d="M16 54h78v12H16z" /><path class="k-ink" d="M26 79h48M26 91h30" />'
               : '<path class="k-ink" d="M55 66v28M41 80h28" />',
-          // A ideia leva também uma etiqueta de pendurar, presa no canto de cima da caixinha.
-          tag = idea
+          done = c?.status === "finished",
+          // A etiqueta de pendurar, presa por um barbante no canto de cima da caixinha: no estudo
+          // concluído traz a data em que a caixinha fechou; na ideia, e no estudo concluído antes
+          // de a data existir, avisa "Sem data".
+          dated = done && !!c.completed,
+          lines = dated
+            ? [fmt(c.completed).slice(0, 5), c.completed.slice(0, 4)]
+            : idea || done
+              ? ["Sem", "data"]
+              : null,
+          tag = lines
             ? `<path class="k-string" d="M113 53c-4-5-5-11-2-16M113 53c3-5 3-11-2-16M111 37l-3-5M111 37l3-5" />
-               <g transform="translate(113 53) rotate(6)">
+               <g class="k-hang" transform="translate(113 53) rotate(6)">
                  <path class="k-tag" d="M-6-5h12l8 8v31a2 2 0 0 1-2 2h-24a2 2 0 0 1-2-2V3z" />
                  <circle class="k-hole" r="2" />
-                 <text y="17">Sem</text>
-                 <text y="27">data</text>
+                 <text${dated ? ' class="k-date"' : ""} y="17">${lines[0]}</text>
+                 <text${dated ? ' class="k-date"' : ""} y="27">${lines[1]}</text>
+               </g>`
+            : "",
+          stamp = done
+            ? `<g class="k-stamp" transform="rotate(-5 55 50)">
+                 <rect class="k-sticker" x="22" y="40" width="66" height="21" rx="2.5" />
+                 <rect class="k-stamp-line" x="24.5" y="42.5" width="61" height="16" rx="1.5" />
+                 <text x="55" y="54" textLength="54">CONCLUÍDO</text>
                </g>`
             : "";
         return `
@@ -2963,12 +3026,13 @@
               <path class="k-top" d="M10 40h90l16-12H26z" />
               <path class="k-tape" d="M49 40h12l16-12H65zM49 40h12v10H49z" />
             </g>
+            ${stamp}
             ${tag}
           </svg>`;
       }
-      // A caixinha de um estudo na estante: aberta enquanto ele anda, fechada depois de concluído.
-      // As etiquetas só aparecem quando há algo a avisar: estudo pausado ou concluído, horário
-      // reservado para hoje ou prazo vencido.
+      // A caixinha de um estudo na estante: aberta enquanto ele anda, fechada depois de concluído,
+      // carimbada de CONCLUÍDO e com a etiqueta da data. Os avisos de texto só aparecem quando há
+      // algo a avisar: estudo pausado, horário reservado para hoje ou prazo vencido.
       function courseBox(c, rows) {
         const p = progress(c.id),
           active = c.status === "active",
@@ -2981,10 +3045,10 @@
           <article class="box${done ? " shut" : active ? "" : " idle"}">
             ${carton(c)}
             <div class="about">
-              ${active ? "" : `<span class="badge">${STATUS[c.status]}</span>`}
+              ${active || done ? "" : `<span class="badge">${STATUS[c.status]}</span>`}
               ${late ? '<span class="badge overdue">Atrasado</span>' : ""}
               ${row ? `<span class="badge today">${row.logged ? "Feito hoje" : ("Hoje " + row.start).trim()}</span>` : ""}
-              <h3><button class="cardlink" data-action="open" data-id="${esc(c.id)}"><span>${esc(c.title)}</span></button></h3>
+              <h3><button class="cardlink" data-action="open" data-id="${esc(c.id)}"><span>${esc(c.title)}</span>${done ? `<span class="screen-reader">${statusLabel(c)}</span>` : ""}</button></h3>
               ${
                 done
                   ? ""
@@ -3061,7 +3125,7 @@
         const c = findCourse(p.course);
         return `
           <article class="card">
-            <span class="badge ${c.box}">${BOXES[c.box]} · ${STATUS[c.status]}</span>
+            <span class="badge ${c.box}">${BOXES[c.box]} · ${statusLabel(c)}</span>
             <h3 style="margin-top:10px">${esc(p.title)}</h3>
             <p class="muted">${esc(c.title)}${p.reviewDate ? " · revisar em " + fmt(p.reviewDate) : ""}</p>
             <p class="purpose"><b>Aplicação:</b> ${esc(p.application)}</p>
@@ -3205,8 +3269,13 @@
             ${stat(p.percent + "%", `${p.done} de ${p.total} partes concluídas`)}
             ${stat(total, "minutos estudados no total")}
             ${stat(sessions.length, "sessões registradas")}
-            <div class="stat"><b style="font-size:18px">${fmt(c.deadline)}</b><span>${STATUS[c.status]}</span></div>
+            <div class="stat"><b style="font-size:18px">${fmt(c.deadline)}</b><span>${statusLabel(c)}</span></div>
           </div>
+          ${
+            c.status === "finished" && !c.completed
+              ? '<p class="note">Este estudo foi concluído antes de a etiqueta de data existir, por isso a caixinha dele está com “Sem data”. Para pôr a data, toque em “Editar estudo e horários” e preencha “Concluído em”.</p>'
+              : ""
+          }
           <section class="panel">
             <div class="linkrow">
               <b>◷ ${esc(scheduleLabel(c))}</b>
@@ -3283,7 +3352,7 @@
                 3. Divida o conteúdo em partes pequenas e responda para que vai usar cada uma.<br>
                 4. Ao estudar, registre os minutos, o aprendizado e onde vai continuar.<br>
                 5. Conclua a parte quando estiver pronta e escolha uma data de revisão.<br>
-                6. Terminou o estudo? Abra-o e toque em “Concluir e fechar a caixa”: a caixinha dele fecha na estante.<br>
+                6. Terminou o estudo? Abra-o e toque em “Concluir e fechar a caixa”: a caixinha dele fecha na estante, carimbada de concluído e com a etiqueta da data. Para voltar a estudar, toque na caixinha e em “Reabrir a caixa”.<br>
                 7. Pensou em algo para estudar um dia? Guarde em “Ideias”, sem prazo e sem horário. Quando quiser começar, toque na ideia e em “Começar este estudo”.
               </p>
               <p class="note">Exemplos: higiene ocupacional na sustentação; JavaScript para a entrega de um app na temporada; eletrônica por curiosidade na areia. Vários estudos podem apoiar o mesmo projeto de temporada.</p>
@@ -3801,6 +3870,7 @@
             "startTime",
             "endTime",
             "nextStep",
+            "completed",
           ])
             courseForm.elements[k].value = c[k] ?? "";
           courseForm
@@ -3814,9 +3884,19 @@
           courseForm.elements.title.value = idea.title;
           courseForm.elements.goal.value = idea.note;
         }
+        showCompleted();
         $("courseError").textContent = "";
         $("courseDialog").showModal();
       }
+      // O campo "Concluído em" só aparece com a situação Concluído, já com a data de hoje quando
+      // o estudo ainda não tem uma.
+      function showCompleted() {
+        const done = courseForm.elements.status.value === "finished";
+        $("completedField").hidden = !done;
+        if (done && !courseForm.elements.completed.value)
+          courseForm.elements.completed.value = today();
+      }
+      courseForm.elements.status.addEventListener("change", showCompleted);
       courseForm.addEventListener("submit", (e) => {
         e.preventDefault();
         const fd = new FormData(courseForm),
@@ -3839,7 +3919,8 @@
         }
         if (
           !Number.isFinite(dayNum(data.scheduleStart)) ||
-          (data.deadline && !Number.isFinite(dayNum(data.deadline)))
+          (data.deadline && !Number.isFinite(dayNum(data.deadline))) ||
+          (data.completed && !Number.isFinite(dayNum(data.completed)))
         ) {
           error.textContent = "Confira as datas.";
           return;
@@ -3868,6 +3949,11 @@
         // e por isso fechar o formulário não o descarta.
         if (c?.pdf !== data.pdf) trash(c?.pdf);
         data.pdfPage = c?.pdf === data.pdf ? c.pdfPage || 1 : 1;
+        // A data de conclusão acompanha a situação: entra quando o estudo é dado por concluído (a
+        // escolhida no campo, senão a que já tinha, senão hoje) e sai quando ele volta a andar ou
+        // é pausado.
+        data.completed =
+          data.status === "finished" ? data.completed || c?.completed || today() : "";
         coursePdf = { path: "", name: "" };
         if (c) Object.assign(c, data);
         else state.courses.push({ ...data, id, created: Date.now() });
@@ -4207,13 +4293,17 @@
           }
         },
         finishCourse(b) {
-          findCourse(b.dataset.id).status = "finished";
+          const c = findCourse(b.dataset.id);
+          c.status = "finished";
+          c.completed = today();
           save();
           go("studies");
-          notify("Estudo concluído. A caixinha dele fechou.");
+          notify("Estudo concluído. A caixinha dele fechou, carimbada e com a etiqueta de hoje.");
         },
         reopenCourse(b) {
-          findCourse(b.dataset.id).status = "active";
+          const c = findCourse(b.dataset.id);
+          c.status = "active";
+          c.completed = "";
           save();
           render();
           notify("Caixinha reaberta. O estudo voltou a andar.");
@@ -4541,7 +4631,7 @@
         const p = progress(c.id);
         return `
           <article class="card">
-            <h3>${esc(c.title)} · ${STATUS[c.status]}</h3>
+            <h3>${esc(c.title)} · ${statusLabel(c)}</h3>
             <p><b>Propósito:</b> ${esc(c.goal)}</p>
             <p><b>Horários:</b> ${esc(scheduleLabel(c))}<br><b>Prazo:</b> ${fmt(c.deadline)}<br><b>Progresso:</b> ${p.done}/${p.total} partes · ${p.percent}%</p>
             ${c.nextStep ? `<p><b>Retomar por:</b> ${esc(c.nextStep)}</p>` : ""}

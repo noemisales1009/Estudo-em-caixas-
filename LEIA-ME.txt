@@ -37,6 +37,11 @@ FUNCIONAMENTO
 Links de materiais precisam de conexão. Enviar e ler PDF também.
 O PDF abre num leitor dentro do app (botão Ler PDF, na tela do estudo), que
 guarda a folha em que a leitura parou; ela vale em todos os aparelhos da conta.
+Ao concluir um estudo, a caixinha dele fecha na estante, carimbada de CONCLUÍDO e com
+uma etiqueta pendurada com a data do dia. Tocar na caixinha abre a caixa e mostra o
+estudo; lá, "Reabrir a caixa" devolve o estudo ao andamento e tira o carimbo e a
+etiqueta. Um estudo concluído antes de existir a etiqueta fica com "Sem data": a data
+pode ser informada em "Editar estudo", no campo "Concluído em".
 Lembretes exigem o app aberto e suporte/permissão do navegador.
 Com o navegador fechado ou suspenso, use também o alarme do celular.
 
