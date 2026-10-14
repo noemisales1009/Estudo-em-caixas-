@@ -687,10 +687,13 @@ try {
   fake.marca = "nova";
   await abrir(P);
   ok("com internet, a versão nova do app chega na hora", (await ev(P, "document.querySelector('meta[name=teste-versao]')?.content")) === "nova");
+  // A cópia guardada no aparelho é trocada pela nova logo depois de ela chegar. Num computador
+  // ocupado isso leva um instante, e só faz sentido tirar a internet depois da troca.
+  ok("a cópia guardada no aparelho passa a ser a versão nova", await ate(P, "caches.open('estudo-em-caixas-v1').then(c=>c.match(location.origin+'/')).then(r=>r&&r.text()).then(t=>!!t&&t.includes('name=\"teste-versao\" content=\"nova\"'))", 15000));
   await ate(P, "user"); await sinc(P);
   await internet(P, false);
   await abrir(P);
-  ok("sem internet nenhuma: abre do aparelho, direto nos estudos, na versão mais nova", await ev(P, "!navigator.onLine && !locked() && !!document.querySelector('.hero') && state.courses.length===1 && document.querySelector('meta[name=teste-versao]')?.content==='nova'"), await texto(P).then((t) => t.slice(0, 80)));
+  ok("sem internet nenhuma: abre do aparelho, direto nos estudos, na versão mais nova", await ate(P, "!navigator.onLine && !locked() && !!document.querySelector('.hero') && state.courses.length===1 && document.querySelector('meta[name=teste-versao]')?.content==='nova'"), await texto(P).then((t) => t.slice(0, 80)));
   ok("a biblioteca da nuvem também vem do aparelho", await ate(P, "sb", 10000));
   await novoEstudo(P, "Criado sem internet");
   ok("o que é feito sem internet fica guardado e o app avisa 'Sem conexão'", (await ate(P, "syncState==='offline'", 45000)) && (await ev(P, "unsent() && !locked() && document.getElementById('accountLabel').textContent==='Sem conexão'")));
